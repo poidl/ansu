@@ -1,4 +1,4 @@
-function [opt_streamfunc] = optimize_streamfunc(s,ct,p,sns,ctns,pns,wrap)
+function [opt_streamfunc] = optimize_streamfunc(s,ct,p,sns,ctns,pns)
 
 %           Optimize streamfunction on density surfaces 
 %
@@ -16,8 +16,8 @@ function [opt_streamfunc] = optimize_streamfunc(s,ct,p,sns,ctns,pns,wrap)
 %           ctns        conservative temperature on initial density
 %                       surface
 %           pns         pressure on initial density surface
-%           wrap        'none'
-%                       'long'
+% %           wrap        'none'
+% %                       'long'
 %
 % Output:   streamfunc          streamfunction on density surface
 %           streamfunc_x        x-component of streamfunction
@@ -31,6 +31,7 @@ function [opt_streamfunc] = optimize_streamfunc(s,ct,p,sns,ctns,pns,wrap)
 %
 %   _________________________________________________________________
 %   This is part of the analyze_surface toolbox, (C) 2009 A. Klocker
+%   Partially modified by P. Barker (2010-13)
 %   type 'help analyze_surface' for more information 
 %   type 'analyze_surface_license' for license details
 %   type 'analyze_surface_version' for version details
@@ -41,6 +42,10 @@ function [opt_streamfunc] = optimize_streamfunc(s,ct,p,sns,ctns,pns,wrap)
 if ~(nargin == 7) 
     error('optimize_stream_func.m: requires 7 input arguments')
 end
+
+global settings
+
+wrap = settings.wrap;
 
 %% get size of 3-dim hydrography
 

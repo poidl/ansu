@@ -1,16 +1,16 @@
-function [e2t,e1t] = scale_fac(lats,longs,wrap)
+function [e2t,e1t] = scale_fac(lats,longs)
 
 %           Find distances between gridpoints of given latitude/longitude 
 %
-% Usage:    [e2t,e1t] = scale_fac(lats,longs,wrap)
+% Usage:    [e2t,e1t] = scale_fac(lats,longs)
 %
 %           Find distances between gridpoints of given latitude/longitude 
 %           in a 2-dim dataset 
 %
 % Input:    lats        latitude
 %           longs       longitude
-%           wrap        'none'
-%                       'long'
+% %           wrap        'none'
+% %                       'long'
 %
 % Output:   e2t         distance between gridpoints in N-S direction             
 %           e1t         distance between gridpoints in E-W direction 
@@ -22,6 +22,7 @@ function [e2t,e1t] = scale_fac(lats,longs,wrap)
 %
 %   _________________________________________________________________
 %   This is part of the analyze_surface toolbox, (C) 2009 A. Klocker
+%   Partially modified by P. Barker (2010-13)
 %   type 'help analyze_surface' for more information 
 %   type 'analyze_surface_license' for license details
 %   type 'analyze_surface_version' for version details
@@ -29,9 +30,13 @@ function [e2t,e1t] = scale_fac(lats,longs,wrap)
 
 %% check input arguments
 
-if ~(nargin == 3)
-    error('scale_fac.m: requires 3 input arguments')
+if ~(nargin == 2)
+    error('scale_fac.m: requires 2 input arguments')
 end
+
+global settings
+
+wrap = settings.wrap;
 
 %% initialize and preallocate memory
 

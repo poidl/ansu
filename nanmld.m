@@ -1,4 +1,4 @@
-function [mld_dpth] = mld(s,ct,p)
+function [mld_dpth] = nanmld(s,ct,p)
 
 %           Calculate mixed-layer depth
 %
@@ -45,20 +45,27 @@ mld_dpth = nan(yi,xi);
 
 %% calculate gamma^rf
 
-%dens = gpoly16ct(s,ct);
-dens = rho_from_ct(s,ct,zeros(zi,yi,xi));
+dens = gpoly16ct(s,ct);
 
 %% calculate mixed layer depth
-
+%keyboard
 for j = 1:yi
     for i = 1:xi
-        min_dens = dens(1,j,i);
-        if isnan(min_dens)
-            mld_dpth(j,i) = nan;
+        [Inn] = find(~isnan(dens(:,i)));
+        
+        min_dens = min(dens(Inn,i));
+        if ~isempty(min_dens)
+            if isnan(min_dens)
+                mld_dpth(i) = nan;
+             elseif p(min(Inn),i) > 20
+                mld_dpth(i) = nan;
+            else
+                diff = min_dens + 0.3 - dens(Inn,i);
+                inds = find(diff(:) > 0);
+                mld_dpth(i) = p(Inn(inds(end)),i);
+            end
         else
-            diff = min_dens + 0.3 - dens(:,j,i);
-            inds = find(diff(:) > 0);
-            mld_dpth(j,i) = p(inds(end),j,i);
+            mld_dpth(i) = nan;
         end
     end
 end

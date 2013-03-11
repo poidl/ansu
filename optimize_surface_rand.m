@@ -1,4 +1,4 @@
-function [sns_i,ctns_i,pns_i] = optimize_surface(s,ct,p,g,n2,sns,ctns,pns,e1t,e2t,nit,choice,wrap)
+function [sns_i,ctns_i,pns_i] = optimize_surface_exact(s,ct,p,g,n2,sns,ctns,pns,e1t,e2t,nit,choice,wrap)
 
 %           Optimize density surfaces to minimise the fictitious diapycnal diffusivity
 %
@@ -81,6 +81,18 @@ cut_off_choice(1,1:yi,1:xi) = mld(s,ct,p);
 [pns] = cut_off(pns,pns,cut_off_choice);
 [n2_ns] = cut_off(n2_ns,pns,cut_off_choice);
 
+switch choice
+    case 's'
+        
+    case 'epsilon'
+        [ex_o] = cut_off(ex,pns,cut_off_choice);
+        [ey_o] = cut_off(ey,pns,cut_off_choice);
+        square_o = ex_o .* ex_o + ey_o .* ey_o;
+        slope_square_o = nansum(square_o(:));
+        no_pts = length(find(~isnan(square_o(:))));
+        eps_ss(1,1) = (sqrt(slope_square_o))/no_pts;
+end
+
 %% prepare data
 
 slope_square = nan(nit,1);
@@ -89,9 +101,16 @@ pns_squeeze = squeeze(pns);
 n2_ns_squeeze = squeeze(n2_ns);
 xx_squeeze = squeeze(xx);
 yy_squeeze = squeeze(yy);
-%  dens_i_hist = nan(nit,yi,xi);
+ sns_i_hist = nan(nit,yi,xi);
+ ctns_i_hist = nan(nit,yi,xi);
+ pns_i_hist = nan(nit,yi,xi);
+ depth_change_e_i_hist = nan(nit,yi,xi);
 %% iterations of inversion
 
+% load mom4_15.mat
+% clear n2_ns_i
+% n2_ns_i(1,:,:) = squeeze(n2_ns_i_hist(149,:,:));
+% nit = 160;
 for it = 1:nit
 
     disp(['iteration nr.',int2str(it)]); % print number of iteration
@@ -541,9 +560,11 @@ for it = 1:nit
 
        % disp(['solving for region ',int2str(nregion)]);
         
-        x = lsqr(A,b,1e-6,10000);
-           
-        x = full(x)'; %#ok
+         x = lsqr(A,b,1e-6,10000);
+         x = full(x)'; %#ok
+        %solve exact
+%        x = (A'*A)\(A'*b);
+
 
         % put density changes calculated by the least-squares solver into
         % their appropriate position in the matrix
@@ -561,14 +582,19 @@ for it = 1:nit
 
     %disp(['calculating ',int2str(nregion),' regions']);
 
-    % calculate density change into depth change
+    % calculate density change into depth change. 
+    % Note. changin the small n2 values to eliminate instabilities 
+    % which will stuff up the solution a bit.
 
     switch choice
         case 'epsilon'
             if (it == 1)
                 depth_change = (-9.81 * (depth_change_e)) ./ (3e-6 + squeeze(n2_ns));
             else
-                depth_change = (-9.81 * (depth_change_e)) ./ (3e-6 + squeeze(n2_ns_i));
+                bvfs = abs(squeeze(n2_ns_i));
+                [Ic]=find(n2_ns_i < 3e-6);
+                bvfs(Ic) = 3e-6;
+                depth_change = (-9.81 * (depth_change_e)) ./ (bvfs);
             end
     end
 
@@ -581,8 +607,18 @@ for it = 1:nit
     % calculate new depth of approximate neutral surface
 
     % damp damps the depth change - if the algorithm goes unstable decrease damp
+
+    if it > 4 & eps_ss(it,1) < 10e-13
+%         damp = (abs(eps_ss(it,1) - eps_ss(1,1)))/(abs(1e-14 - eps_ss(1,1)));
+%         damp = damp + 0.1*rand;
+        damp = 0.95;
+    else
+        damp = 0.5;
+    end
     
-    damp = 0.2;
+    if damp > 0.99
+        damp == 0.99;
+    end
     
     pns_i = nan(1,yi,xi);
     pns_i(1,:,:) = squeeze(pns_old) + damp .* depth_change;
@@ -603,6 +639,8 @@ for it = 1:nit
         case 'epsilon'
             square = ex_i .* ex_i + ey_i .* ey_i;
             slope_square(it,1) = nansum(square(:));
+            no_pts = length(find(~isnan(square(:))));
+            eps_ss(it+1,1) = (sqrt(slope_square(it,1)))/no_pts;
         case 's'
             square = sx_i .* sx_i + sy_i .* sy_i;
             slope_square(it,1) = nansum(square(:));
@@ -619,10 +657,12 @@ for it = 1:nit
 %         dens_i_150 = gpoly16ct(squeeze(sns_i),squeeze(ctns_i));
 %     end
     
-    dens_i_hist(it,:,:) = gpoly16ct(squeeze(sns_i),squeeze(ctns_i));
-    
-    if (mod(it,10) == 0) % plot every 10th iteration
-%         if it == nit
+    sns_i_hist(it,:,:) = squeeze(sns_i);
+    ctns_i_hist(it,:,:) = squeeze(ctns_i);
+    pns_i_hist(it,:,:) = squeeze(pns_i(1,:,:));
+    depth_change_e_i_hist(it,:,:) = squeeze(depth_change_e);
+     if (mod(it,10) == 0) % plot every 10th iteration
+         if it == nit
 % %             figure
 % %             subplot(3,1,1)
 % %             fpcolor(dens_i_100 - dens_i_125),colorbar,caxis([-0.0001 0.0005])
@@ -633,32 +673,37 @@ for it = 1:nit
 % %             subplot(3,1,3)
 % %             fpcolor(dens_i_100 - dens_i_150),colorbar,caxis([-0.0001 0.0005])
 % %             title(['Depth change 100 & 150^t^h iteration'],'fontsize',20,'fontweight','bold')
-%             keyboard
-%         end
+             keyboard
+         end
+        disp(['Iteration no.',int2str(it)]);
         
         figure('Position',[20, 20, 500, 500])
 
         subplot(2,1,1)
-        fpcolor(depth_change)
+        fpcolor(depth_change_e)
         xlabel('Longitude','fontsize',20,'fontweight','bold')
         ylabel('Latitude','fontsize',20,'fontweight','bold')
-        title(['Depth change for ',num2str(it),'^t^h iteration'],'fontsize',20,'fontweight','bold')
+        title(['Depth change (epsilon) for ',num2str(it),'^t^h iteration'],'fontsize',20,'fontweight','bold')
         clear depth_change
+        caxis([-2e-5 2e-5])
         colorbar
         hold on
 
         subplot(2,1,2)
-        semilogy(slope_square)
-        xlabel('Iterations','fontsize',20,'fontweight','bold')
+        semilogy(eps_ss)
+        xlabel('Iteration + 1','fontsize',20,'fontweight','bold')
         title('Evolution of Veronis error','fontsize',20,'fontweight','bold') 
         switch choice
             case 'epsilon'
-                ylabel('\epsilon ^2','fontsize',20,'fontweight','bold')
+                ylabel('Mean \epsilon','fontsize',20,'fontweight','bold')
             case 's'
                 ylabel('s^2','fontsize',20,'fontweight','bold')
         end
         hold on
         grid on
         
-    end
+%         if it == nit
+%             keyboard
+%         end
+     end
 end

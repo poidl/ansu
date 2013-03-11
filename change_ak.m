@@ -1,8 +1,8 @@
-function [matrix_new] = change(matrix,relation,old,new)
+function [matrix_new] = change_ak(matrix,relation,old,new)
 
 %           Change values in matrix
 %
-% Usage:    [matrix_new] = change(matrix,relation,old,new)
+% Usage:    [matrix_new] = change_ak(matrix,relation,old,new)
 %
 %           Changes the 'old' values in the 'matrix' to the 'new' values 
 %           according to the 'relation'.

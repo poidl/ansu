@@ -30,6 +30,7 @@ function [e_hel,e_hel_x,e_hel_y] = e_hel(slope_x,slope_y,uns,vns,grid,wrap)
 %
 %   _________________________________________________________________
 %   This is part of the analyze_surface toolbox, (C) 2009 A. Klocker
+%   Partially modified by P. Barker (2010-13)
 %   type 'help analyze_surface' for more information 
 %   type 'analyze_surface_license' for license details
 %   type 'analyze_surface_version' for version details
@@ -61,8 +62,8 @@ switch grid
 
             case {'none'}
 
-                uns_tracer(1:gi,2:yi,2:xi) = 0.25 * (uns(1:gi,1:yi-1,1:xi-1) + uns(1:gi,1:yi-1,2:xi-1) + uns(1:gi,2:yi-1,1:xi-1) + uns(1:gi,2:yi-1,2:xi-1));
-                vns_tracer(1:gi,2:yi,2:xi) = 0.25 * (vns(1:gi,1:yi-1,1:xi-1) + vns(1:gi,1:yi-1,2:xi-1) + vns(1:gi,2:yi-1,1:xi-1) + vns(1:gi,2:yi-1,2:xi-1));
+                uns_tracer(1:gi,2:yi,2:xi) = 0.25 * (uns(1:gi,1:yi-1,1:xi-1) + uns(1:gi,1:yi-1,2:xi) + uns(1:gi,2:yi,1:xi-1) + uns(1:gi,2:yi,2:xi));
+                vns_tracer(1:gi,2:yi,2:xi) = 0.25 * (vns(1:gi,1:yi-1,1:xi-1) + vns(1:gi,1:yi-1,2:xi) + vns(1:gi,2:yi,1:xi-1) + vns(1:gi,2:yi,2:xi));
 
             case {'long'}
 

@@ -1,8 +1,8 @@
-function [e_cab,e_therm] = e_therm_cab(sns,ctns,pns,n2_ns,g,e1t,e2t,keyword,wrap)
+function [e_cab,e_therm] = e_therm_cab(sns,ctns,pns,n2_ns,g,e1t,e2t)
 
 %           Calculate cabbeling and thermobaricity
 %
-% Usage:    [cabbeling,thermobaricity] = e_therm_cab(sns,ctns,pns,n2_ns,g,e1t,e2t,keyword,wrap)
+% Usage:    [cabbeling,thermobaricity] = e_therm_cab(sns,ctns,pns,n2_ns,g,e1t,e2t)
 %
 %           Calculate the diapycnal velocity caused by cabbeling and
 %           thermobaricity
@@ -15,10 +15,10 @@ function [e_cab,e_therm] = e_therm_cab(sns,ctns,pns,n2_ns,g,e1t,e2t,keyword,wrap
 %           g           gravitational acceleration
 %           e1t         zonal scale factor
 %           e2t         meridional scale factor
-%           keyword     'op' for values on tracer points
-%                       'bp' for values between tracer points
-%           wrap        'none'
-%                       'long' 
+% %           keyword     'op' for values on tracer points
+% %                       'bp' for values between tracer points
+% %           wrap        'none'
+% %                       'long' 
 %
 % Output:   cabbeling            diapycnal velocity caused by cabbeling
 %           thermobaricity       diapycnal velocity caused by thermobaricity
@@ -35,6 +35,7 @@ function [e_cab,e_therm] = e_therm_cab(sns,ctns,pns,n2_ns,g,e1t,e2t,keyword,wrap
 %           
 %   _________________________________________________________________
 %   This is part of the analyze_surface toolbox, (C) 2009 A. Klocker
+%   Partially modified by P. Barker (2010-13)
 %   type 'help analyze_surface' for more information 
 %   type 'analyze_surface_license' for license details
 %   type 'analyze_surface_version' for version details
@@ -42,9 +43,14 @@ function [e_cab,e_therm] = e_therm_cab(sns,ctns,pns,n2_ns,g,e1t,e2t,keyword,wrap
 
 %% check input arguments
 
-if ~(nargin == 9)
-    error('e_therm_cab.m: requires 9 input arguments')
+if ~(nargin == 7)
+    error('e_therm_cab.m: requires 7 input arguments')
 end 
+
+global settings
+
+wrap = settings.wrap;
+keyword = settings.keyword;
 
 %% set parameters
 
@@ -60,7 +66,6 @@ if (length(size(g)) == 2)
 end
 
 %% calculate density, alpha and beta
-
 [rho,rho_s,rho_ct,rho_p] = eosall_from_ct(sns,ctns,pns); %#ok
 
 alpha = - rho_ct ./ rho;
@@ -107,8 +112,8 @@ dadp = (alpha2 - alpha1) ./ (2.*fac);
 
 %% calculate gradients of ct and p on density surface
 
-[ctns_x,ctns_y] = grad_surf(ctns,e1t,e2t,keyword,wrap);
-[pns_x,pns_y] = grad_surf(pns,e1t,e2t,keyword,wrap);
+[ctns_x,ctns_y] = grad_surf(ctns,e1t,e2t);
+[pns_x,pns_y] = grad_surf(pns,e1t,e2t);
 
 %% calculate cabbeling and thermobaricity
 

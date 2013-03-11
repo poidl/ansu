@@ -1,4 +1,4 @@
-function [sns_i,ctns_i,pns_i] = optimize_surface(s,ct,p,g,n2,sns,ctns,pns,e1t,e2t,nit,choice,wrap)
+function [sns_i,ctns_i,pns_i] = optimize_surface_exact(s,ct,p,g,n2,sns,ctns,pns,e1t,e2t,lats,longs,settings)
 
 %           Optimize density surfaces to minimise the fictitious diapycnal diffusivity
 %
@@ -22,13 +22,16 @@ function [sns_i,ctns_i,pns_i] = optimize_surface(s,ct,p,g,n2,sns,ctns,pns,e1t,e2
 %           pns         pressure on initial density surface
 %           e1t         grid length in meters in x-direction
 %           e2t         grid length in meters in y-direction
-%           nit         number of iterations
-%           choice      choice between
-%                       's' slope error
-%                       'epsilon' density gradient error
-%           wrap        'none'
-%                       'long'
 %
+% %           settings    set in main window.
+% %           nit         maximum number of iterations is set to 150
+% %           choice      choice between
+% %                       's' slope error
+% %                       'epsilon' density gradient error
+% %           wrap        'none'
+% %                       'long'
+% %           solver      'iterative'
+% %                       'exact'
 % Output:   sns_i       salinity on optimized surface
 %           ctns_i      conservative temperature on optimized surface
 %           pns_i       pressure on optimized surface
@@ -45,23 +48,28 @@ function [sns_i,ctns_i,pns_i] = optimize_surface(s,ct,p,g,n2,sns,ctns,pns,e1t,e2
 %   _________________________________________________________________
 %   This is part of the analyze_surface toolbox, (C) 2009 A. Klocker
 %   Partially modified by P. Barker (2010-13)
-%   type 'help analyze_surface' for more information 
+%   type 'help analyze_surface' for more information
 %   type 'analyze_surface_license' for license details
 %   type 'analyze_surface_version' for version details
 %
 
 %% get size of 3-dim hydrography
-
+%global settings lats longs
 [zi,yi,xi] = size(s);
+
+wrap = settings.wrap;
+choice = settings.slope;
+solver = settings.solver;
+nit = settings.nit;
 
 %% calculate buoyancy frequency on density surface
 
-p_mid = (p(2:zi,:,:) + p(1:zi-1,:,:)) ./ 2;
+p_mid = 0.5*(p(2:zi,:,:) + p(1:zi-1,:,:));
 n2_ns = var_on_surf(pns,p_mid,n2);
 
 %% calculate slope errors/density gradient errors on initial density surface
 
-[ss,sx,sy,curl_s,ee,ex,ey,curl_e,ver] = slope_error(p,g,n2,sns,ctns,pns,e1t,e2t,'bp',wrap); %#ok
+[ss,sx,sy,curl_s,ee,ex,ey,curl_e,ver] = slope_error(p,g,n2,sns,ctns,pns,e1t,e2t); %#ok
 
 %% choice between minimizing slope errors or density gradient errors
 
@@ -81,33 +89,63 @@ cut_off_choice(1,1:yi,1:xi) = mld(s,ct,p);
 [pns] = cut_off(pns,pns,cut_off_choice);
 [n2_ns] = cut_off(n2_ns,pns,cut_off_choice);
 
+switch choice
+    case 's'
+        keyboard
+    case 'epsilon'
+        [ex_o] = cut_off(ex,pns,cut_off_choice);
+        [ey_o] = cut_off(ey,pns,cut_off_choice);
+        square_o = ex_o .* ex_o + ey_o .* ey_o;
+        slope_square_o = nansum(square_o(:));
+        no_pts = length(find(~isnan(square_o(:))));
+        % eps_ss(1,1) = sqrt(slope_square_o/no_pts);
+end
+
 %% prepare data
 
-slope_square = nan(nit,1);
+% longss = longs;
+% latss = lats;
+% clear longs lats
+% [longs,lats] = meshgrid(longss,latss);
+% clear latss longss
 
+slope_square = nan(nit,1);
 pns_squeeze = squeeze(pns);
 n2_ns_squeeze = squeeze(n2_ns);
 xx_squeeze = squeeze(xx);
 yy_squeeze = squeeze(yy);
-%  dens_i_hist = nan(nit,yi,xi);
+
+sns_i_hist = nan(nit,yi,xi);
+ctns_i_hist = nan(nit,yi,xi);
+pns_i_hist = nan(nit,yi,xi);
+depth_change_e_i_hist = nan(nit,yi,xi);
+depth_change_i_hist = nan(nit,yi,xi);
+r_hist = nan(nit);
+ppm = nan(nit,4);
+
 %% iterations of inversion
+it = 0;
+phiprime = 0;
 
-for it = 1:nit
-
+while phiprime == 0
+    %for it = 1:nit
+    
+    it = it + 1;
+    
     disp(['iteration nr.',int2str(it)]); % print number of iteration
-
+    
     if (it > 1)
-
+        
         % disregard data above mixed layer depth
-
+        
         [pns_i] = cut_off(pns_i,pns_i,cut_off_choice);
         [n2_ns_i] = cut_off(n2_ns_i,pns_i,cut_off_choice);
-
+        
         % prepare data for next iteration
-
+        
         pns_squeeze = squeeze(pns_i);
         n2_ns_squeeze = squeeze(n2_ns_i);
-
+        
         switch choice
             case 'epsilon'
                 [ex_i] = cut_off(ex_i,pns_i,cut_off_choice);
@@ -121,45 +159,45 @@ for it = 1:nit
                 yy_squeeze = squeeze(sy_i);
         end
     end
-
+    
     [yi,xi] = size(pns_squeeze); % find dimensions in lats and longs
-
+    
     % preallocate memory
-
+    
     depth_change = nan(yi,xi);
     depth_change_e = nan(yi,xi);
     
-
+    
     b = zeros(3*xi*yi,1,1);
     s1 = zeros(3*xi*yi,1);
     s2 = zeros(3*xi*yi,1);
     s3 = zeros(3*xi*yi,1);
-
+    
     % find grid points which are not continents
-
+    
     inds = find(~isnan(n2_ns_squeeze(:)));
-
+    
     % build matrix where the ocean gridpoints have their indices and
     % continet gridpoints nans
-
+    
     ng = nan(yi,xi);
     ng(inds) = inds;
-
+    
     % select regions
-
+    
     % build neighbour matrix -> build a matrix which is like a look-up
     % table to see which gridpoints communicate with each other
-
+    
     neighbour = nan(5,length(inds));
-
+    
     switch wrap
-
+        
         case 'none'
-
+            
             for i = 1:length(inds)
-
+                
                 [jj,ii] = ind2sub([yi,xi],inds(i));
-
+                
                 if (jj == 1) && (ii == 1)
                     neighbour(1,i) = ng(jj,ii);
                     neighbour(2,i) = ng(jj,ii+1);
@@ -216,13 +254,13 @@ for it = 1:nit
                     neighbour(5,i) = ng(jj-1,ii);
                 end
             end
-
+            
         case 'long'
-
+            
             for i = 1:length(inds)
-
+                
                 [jj,ii] = ind2sub([yi,xi],inds(i));
-
+                
                 if (jj == 1) && (ii == 1)
                     neighbour(1,i) = ng(jj,ii);
                     neighbour(2,i) = ng(jj,ii+1);
@@ -280,30 +318,30 @@ for it = 1:nit
                 end
             end
     end
-
+    
     nregion = 0;
     region_matrix = nan(yi,xi);
-
+    
     % find independent regions -> a least-squares problem is solved for
     % each of these regions
-
-   while (length(find(~isnan(region_matrix))) ~= length(neighbour))
-
+    
+    while (length(find(~isnan(region_matrix))) ~= length(neighbour))
+        
         pos = 0;
         %region = [];
         region = nan(1,2*length(inds));
         nregion = nregion + 1;
-
+        
         % find starting point of region
-
+        
         for i = 1:length(inds)
-
+            
             if ~isnan(neighbour(1,i)) && isnan(region_matrix(neighbour(1,i)))
                 pos = pos+1;
                 region(pos) = neighbour(1,i);
                 region_matrix(neighbour(1,i)) = nregion;
                 neighbour(1,i) = nan;
-
+                
                 if ~isnan(neighbour(2,i))
                     if isnan(region_matrix(neighbour(2,i)))
                         pos = pos+1;
@@ -312,7 +350,7 @@ for it = 1:nit
                         neighbour(2,i) = nan;
                     end
                 end
-
+                
                 if ~isnan(neighbour(3,i))
                     if isnan(region_matrix(neighbour(3,i)))
                         pos = pos+1;
@@ -321,7 +359,7 @@ for it = 1:nit
                         neighbour(3,i) = nan;
                     end
                 end
-
+                
                 if ~isnan(neighbour(4,i))
                     if isnan(region_matrix(neighbour(4,i)))
                         pos = pos+1;
@@ -330,7 +368,7 @@ for it = 1:nit
                         neighbour(4,i) = nan;
                     end
                 end
-
+                
                 if ~isnan(neighbour(5,i))
                     if isnan(region_matrix(neighbour(5,i)))
                         pos = pos+1;
@@ -339,27 +377,27 @@ for it = 1:nit
                         neighbour(5,i) = nan;
                     end
                 end
-
+                
                 break
-
+                
             end
         end
-
+        
         region_old = [];
         
         %while(length(region) ~= length(region_old))
         while(length(region(1:pos)) ~= length(region_old))
-
+            
             region_old = region(1:pos);
-
+            
             % find all other points of region
-
+            
             for i = 1:length(inds)
-
+                
                 if ~isnan(neighbour(1,i))
                     
                     if (region_matrix(neighbour(1,i)) == nregion) %#ok
-
+                        
                         if ~isnan(neighbour(1,i))
                             if isnan(region_matrix(neighbour(1,i)))
                                 pos = pos+1;
@@ -368,7 +406,7 @@ for it = 1:nit
                                 neighbour(1,i) = nan;
                             end
                         end
-
+                        
                         if ~isnan(neighbour(2,i))
                             if isnan(region_matrix(neighbour(2,i)))
                                 pos = pos+1;
@@ -377,7 +415,7 @@ for it = 1:nit
                                 neighbour(2,i) = nan;
                             end
                         end
-
+                        
                         if ~isnan(neighbour(3,i))
                             if isnan(region_matrix(neighbour(3,i)))
                                 pos = pos+1;
@@ -386,7 +424,7 @@ for it = 1:nit
                                 neighbour(3,i) = nan;
                             end
                         end
-
+                        
                         if ~isnan(neighbour(4,i))
                             if isnan(region_matrix(neighbour(4,i)))
                                 pos = pos+1;
@@ -395,7 +433,7 @@ for it = 1:nit
                                 neighbour(4,i) = nan;
                             end
                         end
-
+                        
                         if ~isnan(neighbour(5,i))
                             if isnan(region_matrix(neighbour(5,i)))
                                 pos = pos+1;
@@ -410,34 +448,34 @@ for it = 1:nit
         end
         region(pos+1:length(region)) = [];
         % only use points of the region improved in this loop
-
+        
         xx_inds = xx_squeeze(region);
         yy_inds = yy_squeeze(region);
         e1t_inds = e1t(region);
         e2t_inds = e2t(region);
-
+        
         % build a matrix where all the points of the region are labelled
         % with 1,2,....length(region), other regions and continents are
         % filled with nans
-
+        
         ng_region = nan(yi,xi);
         ng_region(region) = 1:length(region);
-
+        
         %% set up east-west equations for weighted inversion
-
+        
         neq = 0; % set equation number to 0
         ieq = 0;
-
+        
         for i = 1:length(region)
-
+            
             [jj,ii] = ind2sub([yi,xi],region(i));
-
+            
             switch wrap
-
+                
                 case {'none'}
-
+                    
                     if (ii+1 <= xi) && (~isempty(find(region == ng(jj,ii)))) && (~isempty(find(region == ng(jj,ii+1)))) && (~isnan(xx_inds(ng_region(jj,ii)))) %#ok
-
+                        
                         neq = neq + 1;
                         ieq = ieq + 1;
                         s1(ieq) = neq;
@@ -448,15 +486,15 @@ for it = 1:nit
                         s2(ieq) = ng_region(jj,ii+1);
                         s3(ieq) = 1;
                         b(neq,1) = xx_inds(ng_region(jj,ii)) * e1t_inds(ng_region(jj,ii));
-
+                        
                     end
-
+                    
                 case {'long'}
-
+                    
                     if (ii+1 <= xi)
-
+                        
                         if (~isempty(find(region == ng(jj,ii)))) && (~isempty(find(region == ng(jj,ii+1)))) && (~isnan(xx_inds(ng_region(jj,ii)))) %#ok
-
+                            
                             neq = neq + 1;
                             ieq = ieq + 1;
                             s1(ieq) = neq;
@@ -467,13 +505,13 @@ for it = 1:nit
                             s2(ieq) = ng_region(jj,ii+1);
                             s3(ieq) = 1;
                             b(neq,1) = xx_inds(ng_region(jj,ii)) * e1t_inds(ng_region(jj,ii));
-
+                            
                         end
-
+                        
                     elseif (ii+1 > xi)
-
+                        
                         if (~isempty(find(region == ng(jj,ii))) && ~isempty(find(region == ng(jj,1)))) && (~isnan(xx_inds(ng_region(jj,ii))))%#ok
-
+                            
                             neq = neq + 1;
                             ieq = ieq + 1;
                             s1(ieq) = neq;
@@ -484,21 +522,21 @@ for it = 1:nit
                             s2(ieq) = ng_region(jj,1);
                             s3(ieq) = 1;
                             b(neq,1) = xx_inds(ng_region(jj,ii)) * e1t_inds(ng_region(jj,ii));
-
+                            
                         end
-
+                        
                     end
             end
         end
-
+        
         %% set up north-south equations for weighted inversion
-
+        
         for i = 1:length(region)
-
+            
             [jj,ii] = ind2sub([yi,xi],region(i));
-
+            
             if (jj+1 <= yi) && (~isempty(find(region == ng(jj,ii)))) && ~isempty(find(region == ng(jj+1,ii))) && (~isnan(yy_inds(ng_region(jj,ii))))%#ok
-
+                
                 neq = neq + 1;
                 ieq = ieq + 1;
                 s1(ieq) = neq;
@@ -511,12 +549,13 @@ for it = 1:nit
                 b(neq,1) = yy_inds(ng_region(jj,ii)) * e2t_inds(ng_region(jj,ii));
             end
         end
-
+        
         % make the average of all density changes zero -> this should keep
         % the surface from drifting away from the initial condition
-
+        
         neq = neq + 1;
-
+        %stef: this can stop the surface of drifting away. We might change
+        % that to a different condition.
         for i = 1:length(region)
             [jj,ii] = ind2sub([yi,xi],region(i));
             ieq = ieq + 1;
@@ -524,141 +563,264 @@ for it = 1:nit
             s2(ieq) = ng_region(jj,ii);
             s3(ieq) = 1;
         end
-
+        
         b(neq,1) = 0;
-
+        
         % cut A and b to appropriate size
-
+        
         s1 = s1(1:ieq);
         s2 = s2(1:ieq);
         s3 = s3(1:ieq);
         b = b(1:neq,1);
-
+        
         % make matrix sparse and invert
-
+        
         A = sparse(s1,s2,s3);
         b = sparse(b);
-
-       % disp(['solving for region ',int2str(nregion)]);
         
-        x = lsqr(A,b,1e-6,10000);
-           
-        x = full(x)'; %#ok
-
+        % disp(['solving for region ',int2str(nregion)]);
+        %stef: 'exact' gets to the solution quicker but requires more
+        %memory
+        switch solver
+            case 'iterative'
+                x = lsqr(A,b,1e-7,50000);
+                
+            case 'exact'
+                x = (A'*A)\(A'*b);
+        end
+        
+        x = full(x)';
+        
         % put density changes calculated by the least-squares solver into
         % their appropriate position in the matrix
-
+        
         switch choice
             case 's'
                 depth_change(region) = - x;
             case 'epsilon'
                 depth_change_e(region) = x;
         end
-
+        
         eval(['region_',int2str(nregion),' = region;']);
-
+        
     end
-
-    %disp(['calculating ',int2str(nregion),' regions']);
-
-    % calculate density change into depth change
-
-    switch choice
-        case 'epsilon'
-            if (it == 1)
-                depth_change = (-9.81 * (depth_change_e)) ./ (3e-6 + squeeze(n2_ns));
-            else
-                depth_change = (-9.81 * (depth_change_e)) ./ (3e-6 + squeeze(n2_ns_i));
-            end
-    end
-
+    
+%     if (it > 1)
+%         pns_old = pns_i;
+%     else
+%         pns_old = pns;
+%     end
+    
     if (it > 1)
-        pns_old = pns_i;
+        pns_l = pns_i;
+        sns_l = sns_i;
+        ctns_l = ctns_i;
     else
-        pns_old = pns;
+        pns_l = pns;
+        sns_l = sns;
+        ctns_l = ctns;
     end
 
     % calculate new depth of approximate neutral surface
-
-    % damp damps the depth change - if the algorithm goes unstable decrease damp
     
-    damp = 0.2;
-    
+    %keyboard
+    [zi,yi,xi] = size(s);
+    %[ms1 ms2 ms3] = size(s);
+    clear dummy_depth_change_e
+    dummy_depth_change_e(1,:,:) = (-1).*depth_change_e;
+    clear tni
+    tni = (rho_from_ct(s,ct,repmat(pns_l,[zi,1,1])) - repmat(rho_from_ct(sns_l,ctns_l,pns_l),[zi,1,1])) - repmat((dummy_depth_change_e.*rho_from_ct(sns_l,ctns_l,pns_l)),[zi,1,1]);
     pns_i = nan(1,yi,xi);
-    pns_i(1,:,:) = squeeze(pns_old) + damp .* depth_change;
-
-    % calculate ct, s, slope errors and buoyancy frequency on new
+    ctns_i = nan(1,yi,xi);
+    sns_i = nan(1,yi,xi);
+    %stef: this finds the dz from qhi'
+    for ii_tni = 1:yi
+        for jj_tni = 1:xi
+            [Itni] = find(~isnan(tni(:,ii_tni,jj_tni)));
+            if ~isempty(Itni)
+                tni_temp = tni(Itni,ii_tni,jj_tni);
+                s_temp = s(Itni,ii_tni,jj_tni);
+                ct_temp =ct(Itni,ii_tni,jj_tni);
+                p_temp = p(Itni,ii_tni,jj_tni);
+                tnif = 0;
+                tni_count = 0;
+                while tnif == 0
+                    tni_count = tni_count + 1;
+                    if min(abs(tni_temp)) > 0.000001
+                        Itni_p = find(tni_temp > 0);
+                        Itni_n = find(tni_temp < 0);
+                        if ~isempty(Itni_p) & ~isempty(Itni_n)
+                            [dummy tni_ui] = max(tni_temp(Itni_n));
+                            [dummy tni_li] = min(tni_temp(Itni_p));
+                            if tni_count > 100
+                                tni_li = tni_ui + 10;
+                            end
+                            %stef: devide by 100 instead of iteration,
+                            %which is slower
+                            s_dummy = [s_temp(Itni_n(tni_ui)): (s_temp(Itni_p(tni_li))-s_temp(Itni_n(tni_ui)))/100 :s_temp(Itni_p(tni_li))];
+                            ct_dummy = [ct_temp(Itni_n(tni_ui)): (ct_temp(Itni_p(tni_li))-ct_temp(Itni_n(tni_ui)))/100 :ct_temp(Itni_p(tni_li))];
+                            p_dummy = [p_temp(Itni_n(tni_ui)): (p_temp(Itni_p(tni_li))-p_temp(Itni_n(tni_ui)))/100 :p_temp(Itni_p(tni_li))];
+                            
+                            if isempty(s_dummy) | isempty(ct_dummy) | isempty(p_dummy)
+                                expand_tni = 0;
+                                try
+                                    while expand_tni == 0
+                                        tni_li = tni_li + 1;
+                                        s_dummy = [s_temp(Itni_n(tni_ui)): (s_temp(Itni_p(tni_li))-s_temp(Itni_n(tni_ui)))/100 :s_temp(Itni_p(tni_li))];
+                                        ct_dummy = [ct_temp(Itni_n(tni_ui)): (ct_temp(Itni_p(tni_li))-ct_temp(Itni_n(tni_ui)))/100 :ct_temp(Itni_p(tni_li))];
+                                        p_dummy = [p_temp(Itni_n(tni_ui)): (p_temp(Itni_p(tni_li))-p_temp(Itni_n(tni_ui)))/100 :p_temp(Itni_p(tni_li))];
+                                        if ~isempty(s_dummy) & ~isempty(ct_dummy) & ~isempty(p_dummy)
+                                            expand_tni = 1;
+                                        end
+                                    end
+                                catch
+                                    pns_i(1,ii_tni,jj_tni) = NaN;
+                                    tnif = 1;
+                                    expand_tni = 1;
+                                end
+                            end
+                            if tnif ~= 1
+                                ms1 = length(s_dummy);
+                                
+                                tni_temp = (rho_from_ct(s_dummy(:),ct_dummy(:),repmat(pns_l(1,ii_tni,jj_tni),[ms1,1,1])) - repmat(rho_from_ct(sns_l(1,ii_tni,jj_tni),ctns_l(1,ii_tni,jj_tni),pns_l(1,ii_tni,jj_tni)),[ms1,1,1])) - repmat((dummy_depth_change_e(1,ii_tni,jj_tni).*rho_from_ct(sns_l(1,ii_tni,jj_tni),ctns_l(1,ii_tni,jj_tni),pns_l(1,ii_tni,jj_tni))),[ms1,1,1]);
+                                                                
+                                s_temp = s_dummy;
+                                ct_temp = ct_dummy;
+                                p_temp = p_dummy;
+                                
+                            end
+                        else
+                            pns_i(1,ii_tni,jj_tni) = NaN;
+                            tnif = 1;
+                        end
+                    else
+                        %stef: save fields from every iteration
+                        [dummy Iminr] = min(abs(tni_temp));
+                        pns_i(1,ii_tni,jj_tni) = p_temp(Iminr);
+                        ctns_i(1,ii_tni,jj_tni) = ct_temp(Iminr);
+                        sns_i(1,ii_tni,jj_tni) = s_temp(Iminr);
+                        
+                        tnif = 1;
+                    end
+                end
+            end
+        end
+    end
+      
+    % calculate slope errors and buoyancy frequency on new
     % approximate neutral surface
-
-    [ctns_i,sns_i] = var_on_surf(pns_i,p,ct,s);
+    
     n2_ns_i = var_on_surf(pns_i,p_mid,n2);
-
+    
     [ss_i,sx_i,sy_i,curl_s_i,ee_i,ex_i,ey_i,curl_e_i] = ...
-        slope_error(p,g,n2,sns_i,ctns_i,pns_i,e1t,e2t,'bp',wrap); %#ok
-
+        slope_error(p,g,n2,sns_i,ctns_i,pns_i,e1t,e2t); %#ok
+    
+    
     % calculate epsilon^2 to estimate quality of approximate neutral
     % surface
-
+    
     switch choice
         case 'epsilon'
             square = ex_i .* ex_i + ey_i .* ey_i;
             slope_square(it,1) = nansum(square(:));
+            no_pts = length(find(~isnan(square(:))));
+            eps_ss(it,1) = sqrt(slope_square(it,1)/no_pts);
+            slope_square2(it,1) = nansum(square(:));
+            no_pts = length(find(~isnan(square(:))));
+            eps_ss2(it,1) = sqrt(slope_square2(it,1)/no_pts);
+            
         case 's'
             square = sx_i .* sx_i + sy_i .* sy_i;
             slope_square(it,1) = nansum(square(:));
     end
-
-    % plot depth change and evolution of Veronis error
-%     if it == 100
-%         dens_i_100 = gpoly16ct(squeeze(sns_i),squeeze(ctns_i));
-%     end
-%     if it == 125
-%         dens_i_125 = gpoly16ct(squeeze(sns_i),squeeze(ctns_i));
-%     end
-%     if it == 150
-%         dens_i_150 = gpoly16ct(squeeze(sns_i),squeeze(ctns_i));
-%     end
+   
+    % keyboard
+     
+    sns_i_hist(it,:,:) = squeeze(sns_i);
+    ctns_i_hist(it,:,:) = squeeze(ctns_i);
+    pns_i_hist(it,:,:) = squeeze(pns_i(1,:,:));
+    depth_change_e_i_hist(it,:,:) = squeeze(depth_change_e);
+    jnk1 = (depth_change_e(:));
+    ppm(it,1) = mean(jnk1(find(~isnan(jnk1)))) - 2*std(jnk1(find(~isnan(jnk1))));
+    ppm(it,2) = mean(jnk1(find(~isnan(jnk1)))) + 2*std(jnk1(find(~isnan(jnk1))));
+    ppm(it,3) = std(abs(jnk1(find(~isnan(jnk1)))));
+    ppm(it,4) = nansum(abs(jnk1(find(~isnan(jnk1)))))/length(find(~isnan(jnk1)));
+    phi_prime_rms = ppm(it,2) - ppm(it,1);
     
-    dens_i_hist(it,:,:) = gpoly16ct(squeeze(sns_i),squeeze(ctns_i));
-    
-    if (mod(it,10) == 0) % plot every 10th iteration
-%         if it == nit
-% %             figure
-% %             subplot(3,1,1)
-% %             fpcolor(dens_i_100 - dens_i_125),colorbar,caxis([-0.0001 0.0005])
-% %             title(['Depth change 100 & 125^t^h iteration'],'fontsize',20,'fontweight','bold')
-% %             subplot(3,1,2)
-% %             fpcolor(dens_i_125 - dens_i_150),colorbar,caxis([-0.0001 0.0005])
-% %             title(['Depth change 125 & 150^t^h iteration'],'fontsize',20,'fontweight','bold')
-% %             subplot(3,1,3)
-% %             fpcolor(dens_i_100 - dens_i_150),colorbar,caxis([-0.0001 0.0005])
-% %             title(['Depth change 100 & 150^t^h iteration'],'fontsize',20,'fontweight','bold')
-%             keyboard
-%         end
+    if (it == 1) | (mod(it,7) == 0)
+        figure('Position',[20, 20, 1000, 800])
+        [hax,hax_noxlabel,hax_noylabel,hax_left,hax_bottom] = nfigaxes([3 2],[0.06 0.06],[0.1 0.9],[0.1 0.9]);
+    end
+    if it > 6
+        sp_pos = mod(it,7) + 1; % plot every iteration
+    else
+        sp_pos = mod(it,7);
+    end
+    %stef: every 7th iteration  possibility to stop
+    if mod(it,7) == 0
+        keyboard
+    end
+% 
+%         figure('Position',[20, 20, 1000, 800])
+%         [hax,hax_noxlabel,hax_noylabel,hax_left,hax_bottom] = nfigaxes([3 2],[0.02 0.02],[0.05 0.95],[0.05 0.95]);
         
-        figure('Position',[20, 20, 500, 500])
-
-        subplot(2,1,1)
-        fpcolor(depth_change)
-        xlabel('Longitude','fontsize',20,'fontweight','bold')
-        ylabel('Latitude','fontsize',20,'fontweight','bold')
-        title(['Depth change for ',num2str(it),'^t^h iteration'],'fontsize',20,'fontweight','bold')
-        clear depth_change
+        axes(hax(sp_pos))
+        fpcolor(longs',lats',depth_change_e')
+        title(['\phi '' for ',num2str(it),'^t^h iteration '],'fontsize',20,'fontweight','bold')
+        caxis([(mean(jnk1(find(~isnan(jnk1)))) - 2*std(jnk1(find(~isnan(jnk1))))) (mean(jnk1(find(~isnan(jnk1)))) + 2*std(jnk1(find(~isnan(jnk1)))))])
         colorbar
         hold on
-
-        subplot(2,1,2)
-        semilogy(slope_square)
-        xlabel('Iterations','fontsize',20,'fontweight','bold')
-        title('Evolution of Veronis error','fontsize',20,'fontweight','bold') 
-        switch choice
-            case 'epsilon'
-                ylabel('\epsilon ^2','fontsize',20,'fontweight','bold')
-            case 's'
-                ylabel('s^2','fontsize',20,'fontweight','bold')
-        end
-        hold on
-        grid on
+        coast('k',1)
+        axis([min(min(longs)) max(max(longs)) min(min(lats)) max(max(lats))])
+        hold off
         
+ %         axes(hax(2))
+%         semilogy(eps_ss)
+%         hold on
+%         semilogy(eps_ss2,'r')
+%         % xlabel('Iteration','fontsize',20,'fontweight','bold')
+%         title('Evolution of Veronis error','fontsize',20,'fontweight','bold')
+%         switch choice
+%             case 'epsilon'
+%                 ylabel('Mean \epsilon','fontsize',20,'fontweight','bold')
+%             case 's'
+%                 ylabel('s^2','fontsize',20,'fontweight','bold')
+%         end
+%         grid on
+%         hold off
+        %stef: compare progress of iteration
+%         axes(hax(2))
+%         ddd = squeeze(pns_i_hist(it,:,:)) - squeeze(pns_i_hist(1,:,:));
+%         fpcolor(longs',lats',ddd')
+%         title(['Over all depth change'],'fontsize',20,'fontweight','bold')
+%         jnk = ddd(:);
+%         caxis([(mean(jnk(find(~isnan(jnk)))) - 2*std(jnk(find(~isnan(jnk))))) (mean(jnk(find(~isnan(jnk)))) + 2*std(jnk(find(~isnan(jnk)))))])
+%         colorbar
+%         hold on
+%         coast('k',1)
+%         axis([min(min(longs)) max(max(longs)) min(min(lats)) max(max(lats))])
+%         hold off
+% 
+%         axes(hax(3))
+%         plot([1:it],ppm(1:it,3),'r',[1:it],ppm(1:it,4),'b',[1:it],(ppm(1:it,2) - ppm(1:it,1)) ,'c')
+%         title('\phi ''','fontsize',20,'fontweight','bold')
+%         hold on
+%         grid on
+%         hold off
+%         
+%         axes(hax(4))
+%         fpcolor(longs',lats',squeeze(pns_i(1,:,:))')
+%         title(['Depth of this iteration'],'fontsize',20,'fontweight','bold')
+%         colorbar
+%         hold on
+%         coast('k',1)
+%         axis([min(min(longs)) max(max(longs)) min(min(lats)) max(max(lats))])
+%         hold off
+                        
+         disp(['Iteration no.',int2str(it)]);
     end
+    pause(1)
 end
+
+
+

@@ -17,6 +17,7 @@ function [var_new] = cut_off(var,pns,press)
 %
 %   _________________________________________________________________
 %   This is part of the analyze_surface toolbox, (C) 2009 A. Klocker
+%   Partially modified by P. Barker (2010-13)
 %   type 'help analyze_surface' for more information 
 %   type 'analyze_surface_license' for license details
 %   type 'analyze_surface_version' for version details
@@ -30,7 +31,7 @@ end
 
 %% find points shallower than 'depth' and replace with nan
 
-mask = change(pns,'<=',press,nan);
-mask = change(mask,'>=',press,1);
+mask = change_ak(pns,'<=',press,nan);
+mask = change_ak(mask,'>=',press,1);
 
 var_new = var .* mask;

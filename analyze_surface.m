@@ -108,6 +108,7 @@ function varargout = analyze_surface(varargin)
 %
 %   _________________________________________________________________
 %   This is part of the analyze_surface toolbox, (C) 2009 A. Klocker
+%   Partially modified by P. Barker (2010-13)
 %   type 'help analyze_surface' for more information 
 %   type 'analyze_surface_license' for license details
 %   type 'analyze_surface_version' for version details
@@ -220,14 +221,13 @@ open analyze_surface.pdf
 function open_Callback(hObject, eventdata, handles) %#ok
 
 clear handles.ocean
-clear ocean
 
 [filename,pathname] = uigetfile('*.mat','Select the M-file');
 eval(['load ',pathname,filename])
 
 global ocean_options
 
-if exist('ocean') %#ok if structure ocean exists then use it
+if exist('ocean','var') %#ok if structure ocean exists then use it
 
     handles.ocean = ocean %#ok
 
@@ -309,7 +309,7 @@ else % if structure ocean does not exist then create it
     if (length(size(p)) == 2)
         
         [zi,yi,xi] = size(handles.ocean.s);
-        handles.ocean.p = repmat(p, [1 yi xi]);
+        handles.ocean.p = repmat(p(:), [1 yi xi]);
         
     else
         
@@ -594,7 +594,7 @@ else
     [handles.ocean.sns,handles.ocean.ctns,handles.ocean.pns,handles.ocean.dsns,handles.ocean.dctns,handles.ocean.dpns] = ...
         ns_3d(handles.ocean.s,handles.ocean.ct,handles.ocean.p,handles.rho,handles.ocean.glevels);
     display(['calculating s, ct and p on density surface took ',int2str(toc),' seconds']);
-
+    
 end
 
 % calculate and display average pressure of density surface
@@ -856,15 +856,11 @@ switch handles.which_surface
 
             tic
             display('calculating diapycnal velocity due to thermobaricity/cabbeling through initial density surface');
-       
             [handles.ocean.e_cab,handles.ocean.e_therm] = e_therm_cab(handles.ocean.sns,handles.ocean.ctns,...
                 handles.ocean.pns,handles.ocean.n2_ns,handles.ocean.g,handles.ocean.e1t,handles.ocean.e2t,'op','none');
             display(['calculating diapycnal velocity due to thermobaricity/cabbeling through initial density surface took ',int2str(toc),' seconds']);
 
         end
-
-        % calculate diapycnal transports for diapycnal velocities which
-        % have already been calculated
 
         if (handles.transport == 1)
 
@@ -907,7 +903,7 @@ switch handles.which_surface
             display(['calculating diapycnal transports through initial density surface took ',int2str(toc),' seconds']);
 
         end
-
+        
         if (handles.streamfunc == 1) && (handles.geo_vel == 0)
 
             tic
@@ -943,8 +939,6 @@ switch handles.which_surface
             end
 
         end
-        
-        handles.ocean %DELETE
 
     case 'optimized' % on omega surface
 
@@ -1045,9 +1039,6 @@ switch handles.which_surface
 
         end
 
-        % calculate diapycnal transports for diapycnal velocities which
-        % have already been calculated
-
         if (handles.transport == 1)
 
             tic
@@ -1089,6 +1080,9 @@ switch handles.which_surface
 
         end
 
+        % calculate the approximate geostrophic streamfunction and the
+        % geostrophic velocities
+        
         if (handles.streamfunc == 1) && (handles.geo_vel == 0)
 
             tic
@@ -1400,9 +1394,6 @@ switch handles.which_surface
 
         end
 
-        % calculate diapycnal transports for diapycnal velocities which
-        % have already been calculated
-
         if (handles.transport == 1)
 
             tic
@@ -1454,7 +1445,7 @@ switch handles.which_surface
                 handles.ocean.settings.wrap);
             display(['calculating geostrophic streamfunction on omega surface took ',int2str(toc),' seconds']);
 
-        elseif (handles.streamfunc == 1) && (handles.geo_vel == 1) || (handles.streamfunc == 0) && (handles.geo_vel == 1)
+        elseif ((handles.streamfunc == 1) && (handles.geo_vel == 1)) || ((handles.streamfunc == 0) && (handles.geo_vel == 1))
 
             tic
             display('calculating geostrophic streamfunction on omega surface');

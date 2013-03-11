@@ -1,8 +1,8 @@
-function [geo_vel_x,geo_vel_y] = geo_vel(streamfunc,s,ct,p,sref,ctref,lats,e1t,e2t,p_dynh,wrap)
+function [geo_vel_x,geo_vel_y] = geo_vel(streamfunc,s,ct,p,sref,ctref,lats,e1t,e2t,p_dynh)
 
 %           Calculate geostrophic velocities
 %
-% Usage:    [geo_vel_x,geo_vel_y] = geo_vel(streamfunc,s,ct,p,lats,e1t,e2t,pref,wrap)
+% Usage:    [geo_vel_x,geo_vel_y] = geo_vel(streamfunc,s,ct,p,lats,e1t,e2t,prefp)
 %
 %           Calculate geostrophic velocities from a geostrophic streamfunction
 %           reltaive to the dynamic height at a specified pressure.
@@ -19,8 +19,8 @@ function [geo_vel_x,geo_vel_y] = geo_vel(streamfunc,s,ct,p,sref,ctref,lats,e1t,e
 %           e1t               zonal scale factor
 %           e2t               meridional scale factor
 %           p_dynh            pressure of reference level
-%           wrap              'none'
-%                             'long' 
+% %           wrap              'none'
+% %                             'long' 
 %                 
 % Output:   geo_vel_x         geostrophic velocity in zonal direction
 %           geo_vel_y         geostrophic velocity in meridional direction
@@ -35,6 +35,7 @@ function [geo_vel_x,geo_vel_y] = geo_vel(streamfunc,s,ct,p,sref,ctref,lats,e1t,e
 %
 %   _________________________________________________________________
 %   This is part of the analyze_surface toolbox, (C) 2009 A. Klocker
+%   Partially modified by P. Barker (2010-13)
 %   type 'help analyze_surface' for more information 
 %   type 'analyze_surface_license' for license details
 %   type 'analyze_surface_version' for version details
@@ -42,21 +43,25 @@ function [geo_vel_x,geo_vel_y] = geo_vel(streamfunc,s,ct,p,sref,ctref,lats,e1t,e
 
 %% check input arguments
 
-if ~(nargin == 11)
-    error('geo_vel.m: requires 11 input arguments')
+if ~(nargin == 10)
+    error('geo_vel.m: requires 10 input arguments')
 end
+
+
+global settings
+wrap = settings.wrap;
 
 [zi,yi,xi] = size(streamfunc);
 
 %% calculate gradients of streamfunction
 
-[grad_streamfunc_x,grad_streamfunc_y] = grad_surf(streamfunc,e1t,e2t,'bp',wrap);
+[grad_streamfunc_x,grad_streamfunc_y] = grad_surf(streamfunc,e1t,e2t);
 
 %% calculate steric height and its gradients  
 
 [dynh] = dyn_height(s,ct,p,sref,ctref,p_dynh);
 
-[grad_streamfunc_ref_x,grad_streamfunc_ref_y] = grad_surf(dynh,e1t,e2t,'bp',wrap);
+[grad_streamfunc_ref_x,grad_streamfunc_ref_y] = grad_surf(dynh,e1t,e2t);
 
 %% calculating relative gradients
 

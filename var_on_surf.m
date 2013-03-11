@@ -22,6 +22,7 @@ function [var1_ns,var2_ns] = var_on_surf(pns,p,var1,var2)
 %
 %   _________________________________________________________________
 %   This is part of the analyze_surface toolbox, (C) 2009 A. Klocker
+%   Partially modified by P. Barker (2010-13)
 %   type 'help analyze_surface' for more information 
 %   type 'analyze_surface_license' for license details
 %   type 'analyze_surface_version' for version details
@@ -72,8 +73,10 @@ if (nargin == 3) % if interpolating one variable
                     inds_l = inds(1);
                     inds_u = inds(1) - 1;
                     if (inds_l ~= 1)
+                        try
                         r = (pns(1,j,i)-p(inds_u,j,i))/(p(inds_l,j,i)-p(inds_u,j,i));
                         var1_ns(1,j,i) = var1(inds_u,j,i) + r*(var1(inds_l,j,i)-var1(inds_u,j,i));
+                        end
                     else
                         var1_ns(1,j,i) = var1(1,j,i);
                     end
