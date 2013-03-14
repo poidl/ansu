@@ -20,7 +20,7 @@ function [n2,p_mid] = bfrq_ct(s,ct,p,g)
 % Output:   n2          Brunt-Vaisala frequency squared (N^2)
 %           p_mid       mid pressure between p-points
 %  
-% Calls:    z_from_p.m, rho_from_ct.m
+% Calls:    z_from_p.m, gsw_rho.m
 %
 % Units:    salinity                    psu (IPSS-78)
 %           conservative temperature    degrees C (IPS-90)
@@ -29,6 +29,7 @@ function [n2,p_mid] = bfrq_ct(s,ct,p,g)
 %   _________________________________________________________________
 %   This is part of the analyze_surface toolbox, (C) 2009 A. Klocker
 %   Partially modified by P. Barker (2010-13)
+%   Partially modified by S. Riha (2013)
 %   type 'help analyze_surface' for more information 
 %   type 'analyze_surface_license' for license details
 %   type 'analyze_surface_version' for version details
@@ -66,8 +67,8 @@ p_up = p(1:zi-1,:,:);
 p_lo = p(2:zi,:,:);
 p_mid = (p_lo + p_up) ./ 2;
 
-rho_up = rho_from_ct(s(1:zi-1,:,:),ct(1:zi-1,:,:),p_mid);
-rho_lo = rho_from_ct(s(2:zi,:,:),ct(2:zi,:,:),p_mid);
+rho_up = gsw_rho(s(1:zi-1,:,:),ct(1:zi-1,:,:),p_mid);
+rho_lo = gsw_rho(s(2:zi,:,:),ct(2:zi,:,:),p_mid);
 
 rho_mid = (rho_up + rho_lo) ./ 2;
 rho_diff = rho_up - rho_lo;

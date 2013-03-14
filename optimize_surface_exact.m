@@ -1,4 +1,4 @@
-function [sns_i,ctns_i,pns_i] = optimize_surface_exact(s,ct,p,g,n2,sns,ctns,pns,e1t,e2t,lats,longs,settings)
+function [sns_i,ctns_i,pns_i] = optimize_surface_exact(s,ct,p,g,n2,sns,ctns,pns,e1t,e2t,settings)
 
 %           Optimize density surfaces to minimise the fictitious diapycnal diffusivity
 %
@@ -48,6 +48,7 @@ function [sns_i,ctns_i,pns_i] = optimize_surface_exact(s,ct,p,g,n2,sns,ctns,pns,
 %   _________________________________________________________________
 %   This is part of the analyze_surface toolbox, (C) 2009 A. Klocker
 %   Partially modified by P. Barker (2010-13)
+%   Partially modified by S. Riha (2013)
 %   type 'help analyze_surface' for more information
 %   type 'analyze_surface_license' for license details
 %   type 'analyze_surface_version' for version details
@@ -127,12 +128,12 @@ ppm = nan(nit,4);
 it = 0;
 phiprime = 0;
 
-while phiprime == 0
-    %for it = 1:nit
+
+for it = 1:nit
     
-    it = it + 1;
+    %it = it + 1;
     
-    disp(['iteration nr.',int2str(it)]); % print number of iteration
+    disp(['Iteration nr.',int2str(it)]); % print number of iteration
     
     if (it > 1)
         
@@ -583,7 +584,7 @@ while phiprime == 0
         %memory
         switch solver
             case 'iterative'
-                x = lsqr(A,b,1e-7,50000);
+                [x,dummyflag] = lsqr(A,b,1e-7,50000);
                 
             case 'exact'
                 x = (A'*A)\(A'*b);
@@ -629,7 +630,15 @@ while phiprime == 0
     clear dummy_depth_change_e
     dummy_depth_change_e(1,:,:) = (-1).*depth_change_e;
     clear tni
-    tni = (rho_from_ct(s,ct,repmat(pns_l,[zi,1,1])) - repmat(rho_from_ct(sns_l,ctns_l,pns_l),[zi,1,1])) - repmat((dummy_depth_change_e.*rho_from_ct(sns_l,ctns_l,pns_l)),[zi,1,1]);
+    tmp1=nan*ones(size(s));
+    tmp3=nan*ones(size(s));
+    for kk=1:size(s,1)
+        tmp1(kk,:,:)=gsw_rho(squeeze(s(kk,:,:)),squeeze(ct(kk,:,:)),squeeze(pns_l));
+    end
+    tmp2=gsw_rho(squeeze(sns_l),squeeze(ctns_l),squeeze(pns_l));
+    tmp3=repmat(permute(tmp2,[3,1,2]),[zi,1,1]);
+    tmp4=repmat(dummy_depth_change_e.*permute(tmp2,[3,1,2]),[zi,1,1]);
+    tni = (tmp1 - tmp3) - tmp4;
     pns_i = nan(1,yi,xi);
     ctns_i = nan(1,yi,xi);
     sns_i = nan(1,yi,xi);
@@ -682,7 +691,7 @@ while phiprime == 0
                             if tnif ~= 1
                                 ms1 = length(s_dummy);
                                 
-                                tni_temp = (rho_from_ct(s_dummy(:),ct_dummy(:),repmat(pns_l(1,ii_tni,jj_tni),[ms1,1,1])) - repmat(rho_from_ct(sns_l(1,ii_tni,jj_tni),ctns_l(1,ii_tni,jj_tni),pns_l(1,ii_tni,jj_tni)),[ms1,1,1])) - repmat((dummy_depth_change_e(1,ii_tni,jj_tni).*rho_from_ct(sns_l(1,ii_tni,jj_tni),ctns_l(1,ii_tni,jj_tni),pns_l(1,ii_tni,jj_tni))),[ms1,1,1]);
+                                tni_temp = (gsw_rho(s_dummy(:),ct_dummy(:),repmat(pns_l(1,ii_tni,jj_tni),[ms1,1,1])) - repmat(gsw_rho(sns_l(1,ii_tni,jj_tni),ctns_l(1,ii_tni,jj_tni),pns_l(1,ii_tni,jj_tni)),[ms1,1,1])) - repmat((dummy_depth_change_e(1,ii_tni,jj_tni).*gsw_rho(sns_l(1,ii_tni,jj_tni),ctns_l(1,ii_tni,jj_tni),pns_l(1,ii_tni,jj_tni))),[ms1,1,1]);
                                                                 
                                 s_temp = s_dummy;
                                 ct_temp = ct_dummy;
@@ -725,9 +734,6 @@ while phiprime == 0
             slope_square(it,1) = nansum(square(:));
             no_pts = length(find(~isnan(square(:))));
             eps_ss(it,1) = sqrt(slope_square(it,1)/no_pts);
-            slope_square2(it,1) = nansum(square(:));
-            no_pts = length(find(~isnan(square(:))));
-            eps_ss2(it,1) = sqrt(slope_square2(it,1)/no_pts);
             
         case 's'
             square = sx_i .* sx_i + sy_i .* sy_i;
@@ -747,32 +753,40 @@ while phiprime == 0
     ppm(it,4) = nansum(abs(jnk1(find(~isnan(jnk1)))))/length(find(~isnan(jnk1)));
     phi_prime_rms = ppm(it,2) - ppm(it,1);
     
-    if (it == 1) | (mod(it,7) == 0)
-        figure('Position',[20, 20, 1000, 800])
-        [hax,hax_noxlabel,hax_noylabel,hax_left,hax_bottom] = nfigaxes([3 2],[0.06 0.06],[0.1 0.9],[0.1 0.9]);
-    end
-    if it > 6
-        sp_pos = mod(it,7) + 1; % plot every iteration
-    else
-        sp_pos = mod(it,7);
-    end
-    %stef: every 7th iteration  possibility to stop
-    if mod(it,7) == 0
-        keyboard
-    end
-% 
+    % save variables for postprocessing 
+    vars = {'sns_i_hist','ctns_i_hist','pns_i_hist','depth_change_e_i_hist','eps_ss'};
+    save('/home/z3439823/mymatlab/omega/data_stefan/ansu_hist.mat', vars{:})
+    
+%     if (it == 1) | (mod(it,7) == 0)
 %         figure('Position',[20, 20, 1000, 800])
-%         [hax,hax_noxlabel,hax_noylabel,hax_left,hax_bottom] = nfigaxes([3 2],[0.02 0.02],[0.05 0.95],[0.05 0.95]);
-        
-        axes(hax(sp_pos))
-        fpcolor(longs',lats',depth_change_e')
-        title(['\phi '' for ',num2str(it),'^t^h iteration '],'fontsize',20,'fontweight','bold')
-        caxis([(mean(jnk1(find(~isnan(jnk1)))) - 2*std(jnk1(find(~isnan(jnk1))))) (mean(jnk1(find(~isnan(jnk1)))) + 2*std(jnk1(find(~isnan(jnk1)))))])
-        colorbar
-        hold on
-        coast('k',1)
-        axis([min(min(longs)) max(max(longs)) min(min(lats)) max(max(lats))])
-        hold off
+%         [hax,hax_noxlabel,hax_noylabel,hax_left,hax_bottom] = nfigaxes([3 2],[0.06 0.06],[0.1 0.9],[0.1 0.9]);
+%     end
+%     if it > 6
+%         sp_pos = mod(it,7) + 1; % plot every iteration
+%     else
+%         sp_pos = mod(it,7);
+%     end
+%     %stef: every 7th iteration  possibility to stop
+%     if mod(it,7) == 0
+%         keyboard
+%     end
+% % 
+% %         figure('Position',[20, 20, 1000, 800])
+% %         [hax,hax_noxlabel,hax_noylabel,hax_left,hax_bottom] = nfigaxes([3 2],[0.02 0.02],[0.05 0.95],[0.05 0.95]);
+%         
+%         axes(hax(sp_pos))
+%         lon=squeeze(longs(1,1,:))
+%         lat=squeeze(lats(1,:,1))
+%         h=imagesc(lon,lat,depth_change_e)
+%         set(h,'alphadata',~isnan(depth_change_e))
+%         set(gca,'YDir','normal')
+%         title(['\phi '' for ',num2str(it),'^t^h iteration '],'fontsize',20,'fontweight','bold')
+%         caxis([(mean(jnk1(find(~isnan(jnk1)))) - 2*std(jnk1(find(~isnan(jnk1))))) (mean(jnk1(find(~isnan(jnk1)))) + 2*std(jnk1(find(~isnan(jnk1)))))])
+%         colorbar
+%         hold on
+%         coast('k',1)
+%         axis([min(lon) max(lon) min(lat) max(lat)])
+%         hold off
         
  %         axes(hax(2))
 %         semilogy(eps_ss)
@@ -817,7 +831,6 @@ while phiprime == 0
 %         axis([min(min(longs)) max(max(longs)) min(min(lats)) max(max(lats))])
 %         hold off
                         
-         disp(['Iteration no.',int2str(it)]);
     end
     pause(1)
 end

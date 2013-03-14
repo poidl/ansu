@@ -40,6 +40,7 @@ function [sns,ctns,pns,dsns,dctns,dpns] = ns_3d(s,ct,p,rho,rholevels)
 %   _________________________________________________________________
 %   This is part of the analyze_surface toolbox, (C) 2009 A. Klocker
 %   Partially modified by P. Barker (2010-13)
+%   Partially modified by S. Riha (2013)
 %   type 'help analyze_surface' for more information 
 %   type 'analyze_surface_license' for license details
 %   type 'analyze_surface_version' for version details
@@ -89,7 +90,7 @@ switch time_check
         gg = rho(:,inds);
         gg2=change(gg,'<',0,NaN);
         
-        [s_ns,ct_ns,p_ns,ds_ns,dct_ns,dp_ns] = neutral_surfaces(ss,tt,pp,gg2,rholevels);
+        [s_ns,ct_ns,p_ns,ds_ns,dct_ns,dp_ns] = neutral_surfaces_new(ss,tt,pp,gg2,rholevels);
 
         % pack output into 3-d g array
 

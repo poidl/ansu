@@ -18,11 +18,12 @@ function [e2t,e1t] = scale_fac(lats,longs)
 % Units:    e2t         m
 %           e1t         m
 %
-% Calls:    sw_dist.m
+% Calls:    gsw_distance.m
 %
 %   _________________________________________________________________
 %   This is part of the analyze_surface toolbox, (C) 2009 A. Klocker
 %   Partially modified by P. Barker (2010-13)
+%   Partially modified by S. Riha (2013)
 %   type 'help analyze_surface' for more information 
 %   type 'analyze_surface_license' for license details
 %   type 'analyze_surface_version' for version details
@@ -50,31 +51,26 @@ switch wrap
     case 'none'
         for j = 1:yi
             for i = 1:xi-1
-                e1t(j,i) = sw_dist([lats(j,i) lats(j,i)],[longs(j,i) longs(j,i+1)],'km');
+                e1t(j,i) = gsw_distance([longs(j,i) longs(j,i+1)],[lats(j,i) lats(j,i)]);
             end
         end
         for j = 1:yi-1
             for i = 1:xi
-                e2t(j,i) = sw_dist([lats(j,i) lats(j+1,i)],[longs(j,i) longs(j,i)],'km');
+                e2t(j,i) = gsw_distance([longs(j,i) longs(j,i)],[lats(j,i) lats(j+1,i)]);
             end
         end
     case 'long'
         for j = 1:yi
             for i = 1:xi-1
-                e1t(j,i) = sw_dist([lats(j,i) lats(j,i)],[longs(j,i) longs(j,i+1)],'km');
+                e1t(j,i) = gsw_distance([longs(j,i) longs(j,i+1)],[lats(j,i) lats(j,i)]);
             end
         end
         for j = 1:yi
-            e1t(j,xi) = sw_dist([lats(j,i) lats(j,i)],[longs(j,xi) longs(j,1)],'km');
+            e1t(j,xi) = gsw_distance([longs(j,xi) longs(j,1)],[lats(j,i) lats(j,i)]);
         end
         for j = 1:yi-1
             for i = 1:xi
-                e2t(j,i) = sw_dist([lats(j,i) lats(j+1,i)],[longs(j,i) longs(j,i)],'km');
+                e2t(j,i) = gsw_distance([longs(j,i) longs(j,i)],[lats(j,i) lats(j+1,i)]);
             end
         end
 end
-
-%% convert distances from kilometers to meters
-
-e1t = 1000 * e1t;
-e2t = 1000 * e2t;

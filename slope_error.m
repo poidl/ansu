@@ -45,6 +45,7 @@ function [ss,sx,sy,curl_s,ee,ex,ey,curl_e,fdd] = slope_error(p,g,n2,sns,ctns,pns
 %   _________________________________________________________________
 %   This is part of the analyze_surface toolbox, (C) 2009 A. Klocker
 %   Partially modified by P. Barker (2010-13)
+%   Partially modified by S. Riha (2013)
 %   type 'help analyze_surface' for more information 
 %   type 'analyze_surface_license' for license details
 %   type 'analyze_surface_version' for version details
@@ -80,14 +81,19 @@ switch keyword
 
         [gradx_ct,grady_ct] = grad_surf(ctns,e1t,e2t);
         [gradx_s,grady_s] = grad_surf(sns,e1t,e2t);
-        [alpha,beta] = ab_from_ct(sns,ctns,pns);
+        alpha=nan*ones(size(sns));
+        beta=nan*ones(size(sns));
+        for kk=1:size(sns,1)
+            alpha(kk,:,:) = gsw_alpha(squeeze(sns(kk,:,:)),squeeze(ctns(kk,:,:)),squeeze(pns(kk,:,:)));
+            beta(kk,:,:) = gsw_beta(squeeze(sns(kk,:,:)),squeeze(ctns(kk,:,:)),squeeze(pns(kk,:,:)));
+        end
 
         % calculate density gradient errors (epsilon)
 
         ex = ((beta .* gradx_s) - (alpha .* gradx_ct));
         ey = ((beta .* grady_s) - (alpha .* grady_ct));
         ee = ex + ey; 
-     ee = NaN;
+        ee = NaN;
         % calculate slope errors
 
         n2_ns = var_on_surf(pns,p,n2);
