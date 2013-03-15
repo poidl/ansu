@@ -9,6 +9,6 @@ if n1~=n3, error(message), end
 
 rho=gsw_rho(sa,ct,p);
 rho_s=rho*gsw_beta(sa,ct,p);
-rho_ct=rho*gsw_alpha(sa,ct,p);
+rho_ct=-rho*gsw_alpha(sa,ct,p);
 
 return
