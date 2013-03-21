@@ -94,15 +94,17 @@ ierr = 0;
             for i_int = 1:nint
               k = intz(i_int);
 %         coefficients of a quadratic for gamma
-              [rho,rho_s,rho_t] =  eosall_from_ct_new(s(k),t(k),p(k));
-              alfa_l = -rho_t/rho; beta_l = rho_s/rho;
 
-              [rho,rho_s,rho_t] = eosall_from_ct_new(s(k+1),t(k+1),p(k+1));
-              alfa_u = -rho_t/rho; beta_u = rho_s/rho;
+              alfa_l  = gsw_alpha(s(k),t(k),p(k)); 
+              beta_l = gsw_beta(s(k),t(k),p(k));
+
+              alfa_u = gsw_alpha(s(k+1),t(k+1),p(k+1)); 
+              beta_u = gsw_beta(s(k+1),t(k+1),p(k+1));
  
               smid = (s(k)+s(k+1))/2; tmid = (t(k)+t(k+1))/2; pmid = (p(k)+p(k+1))/2;
-              [rhomid,rho_s,rho_t] = eosall_from_ct_new(smid,tmid,pmid);
-              alfa_mid = -rho_t/rhomid; beta_mid = rho_s/rho;
+              rhomid = gsw_rho(smid,tmid,pmid);
+              alfa_mid = gsw_alpha(smid,tmid,pmid); 
+              beta_mid = gsw_beta(smid,tmid,pmid);
 
               dels = s(k+1)-s(k); delth = t(k+1)-t(k);
 

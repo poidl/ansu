@@ -21,11 +21,9 @@
 %   geo_streamfunc          - Calculate the geostrophic streamfunction on
 %                             approximately neutral surfaces
 %   geo_vel                 - Calculate geostrophic velocities
-%   gpoly16ct               - Calculate neutral density (gamma^rf) through 
 %                             a rational function
 %   grad_surf               - Find the surface gradient of a variable in x 
 %                             and y-direction.
-%   grav                    - Calculate gravitational acceleration
 %   helicity_pressure       - Calculate neutral helicity on pressure levels
 %   helicity_surface        - Calculate neutral helicity on a density surface
 %   input_settings          - input_settings.m -- GUI for setting input settings.
