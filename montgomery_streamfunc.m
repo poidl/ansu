@@ -100,7 +100,7 @@ steric_int  = cumsum([top;delta_steric]);
 p_mid_pa = 0.5 * (p_pa(2:end,:,:) + p_pa(1:end-1,:,:));
 steric_int_surf = var_on_surf(pns_pa,p_mid_pa,steric_int);
 
-steric_int_surf = change(steric_int_surf,'==',0,nan);
+steric_int_surf = change_ak(steric_int_surf,'==',0,nan);
 
 %% calculate streamfunction
 

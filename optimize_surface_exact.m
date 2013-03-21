@@ -1,4 +1,4 @@
-function [sns_i,ctns_i,pns_i] = optimize_surface_exact(s,ct,p,g,n2,sns,ctns,pns,e1t,e2t,settings)
+function [sns_i,ctns_i,pns_i,ithist] = optimize_surface_exact(s,ct,p,g,n2,sns,ctns,pns,e1t,e2t,settings)
 
 %           Optimize density surfaces to minimise the fictitious diapycnal diffusivity
 %
@@ -631,7 +631,6 @@ for it = 1:nit
     dummy_depth_change_e(1,:,:) = (-1).*depth_change_e;
     clear tni
     tmp1=nan*ones(size(s));
-    tmp3=nan*ones(size(s));
     for kk=1:size(s,1)
         tmp1(kk,:,:)=gsw_rho(squeeze(s(kk,:,:)),squeeze(ct(kk,:,:)),squeeze(pns_l));
     end
@@ -753,9 +752,17 @@ for it = 1:nit
     ppm(it,4) = nansum(abs(jnk1(find(~isnan(jnk1)))))/length(find(~isnan(jnk1)));
     phi_prime_rms = ppm(it,2) - ppm(it,1);
     
+    ithist.sns_i = sns_i_hist;
+    ithist.ctns_i = ctns_i_hist;
+    ithist.pns_i = pns_i_hist;
+    ithist.depth_change_e_i = depth_change_e_i_hist;
+    ithist.eps_ss = eps_ss;
+
     % save variables for postprocessing 
-    vars = {'sns_i_hist','ctns_i_hist','pns_i_hist','depth_change_e_i_hist','eps_ss'};
-    save('/home/z3439823/mymatlab/omega/data_stefan/ansu_hist.mat', vars{:})
+    %vars = {'sns_i_hist','ctns_i_hist','pns_i_hist','depth_change_e_i_hist','eps_ss'};
+    %save('/home/z3439823/mymatlab/omega/data_stefan/ansu_hist.mat', vars{:})
+    %save('/home/z3439823/mymatlab/omega/data_stefan/ansu_hist_zero_hel.mat', vars{:})
+    
     
 %     if (it == 1) | (mod(it,7) == 0)
 %         figure('Position',[20, 20, 1000, 800])

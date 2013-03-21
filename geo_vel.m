@@ -25,7 +25,7 @@ function [geo_vel_x,geo_vel_y] = geo_vel(streamfunc,s,ct,p,sref,ctref,lats,e1t,e
 % Output:   geo_vel_x         geostrophic velocity in zonal direction
 %           geo_vel_y         geostrophic velocity in meridional direction
 % 
-% Calls:    grad_surf.m, dyn_height.m, coriolis.m
+% Calls:    grad_surf.m, dyn_height.m, gsw_f.m
 %
 % Units:    salinity                    psu (IPSS-78)
 %           conservative temperature    degrees C (IPS-90)
@@ -71,7 +71,7 @@ grad_streamfunc_rel_y = grad_streamfunc_y - grad_streamfunc_ref_y;
 
 %% calculate coriolis parameter
 
-f_tmp = coriolis(lats);
+f_tmp = gsw_f(lats);
 f = nan(1,yi,xi);
 f(1,1:yi,1:xi) = f_tmp;
 

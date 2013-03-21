@@ -2,15 +2,12 @@
 %
 % Contents:
 %
-%   ab_from_ct              - Calculate alpha, beta, alpha/beta and T_b
 %   analyze_surface         - analyze_surface.m -- The main GUI for the 
 %                             analyze_surface toolbox
 %   analyze_surface_license - License statement and permissions for 
 %                             analyze_surface package.
-%   bernoulli_streamfunc    - Calculate the Bernoulli streamfunction
-%   bfrq_ct                 - Calculate the buoyancy frequency, N^2 
-%   change                  - Change values in matrix
-%   coriolis                - Calculate the coriolis parameter
+%   bernoulli_streamfunc    - Calculate the Bernoulli streamfunction 
+%   change_ak                  - Change values in matrix
 %   cut_off                 - Cut off data on a surface above a certain depth. 
 %   delta_streamfunc        - Calculate local difference in streamfunctions
 %   dia_trans               - Calculate dia-surface transport and integrate 

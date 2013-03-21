@@ -204,7 +204,7 @@ p_mid_pa = 0.5 * (p_pa(2:end,:,:) + p_pa(1:end-1,:,:));
 pp = [p_pa(1,:,:);p_mid_pa];
 steric_int_surf = var_on_surf(pns_pa(1,:,:),pp,steric_int);
 
-steric_int_surf = change(steric_int_surf,'==',0,nan);
+steric_int_surf = change_ak(steric_int_surf,'==',0,nan);
 
 % for eastern point
  
@@ -237,7 +237,7 @@ switch wrap
 end
         
 
-term3_e = change(steric_int_e_surf,'==',0,nan);
+term3_e = change_ak(steric_int_e_surf,'==',0,nan);
 
 % for northern point
 
@@ -251,7 +251,7 @@ steric_n_int  = cumsum([top;delta_n_steric]);
 
 steric_int_n_surf(1,1:yi-1,1:xi) = var_on_surf(pns_pa(1,2:yi,1:xi),pp(:,2:yi,1:xi),steric_n_int);
 
-term3_n = change(steric_int_n_surf,'==',0,nan);
+term3_n = change_ak(steric_int_n_surf,'==',0,nan);
  
 %% calculate streamfuction difference 
 

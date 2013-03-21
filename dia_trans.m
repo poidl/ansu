@@ -46,8 +46,8 @@ transport = nan(1,yi,xi);
 transport(1,:,:) = e1t .* e2t .* squeeze(dia_vel(1,:,:));
 
 %% get rid of Infs
-transport(1,:,:) = change(transport(1,:,:),'==',Inf,NaN);
-transport(1,:,:) = change(transport(1,:,:),'==',-Inf,NaN);
+transport(1,:,:) = change_ak(transport(1,:,:),'==',Inf,NaN);
+transport(1,:,:) = change_ak(transport(1,:,:),'==',-Inf,NaN);
 
 %% integral of diapycnal transport
 

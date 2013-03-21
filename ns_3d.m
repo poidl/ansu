@@ -88,7 +88,7 @@ switch time_check
         ss = s(:,inds); tt = ct(:,inds);
 
         gg = rho(:,inds);
-        gg2=change(gg,'<',0,NaN);
+        gg2=change_ak(gg,'<',0,NaN);
         
         [s_ns,ct_ns,p_ns,ds_ns,dct_ns,dp_ns] = neutral_surfaces_new(ss,tt,pp,gg2,rholevels);
 
@@ -120,7 +120,7 @@ switch time_check
             ss = squeeze(s(l,:,inds)); tt = squeeze(ct(l,:,inds)); pp = squeeze(p(l,:,inds));
 
             gg = squeeze(rho(l,:,inds));
-            gg2 = change(gg,'<',0,NaN);
+            gg2 = change_ak(gg,'<',0,NaN);
             
             [s_ns,ct_ns,p_ns,ds_ns,dct_ns,dp_ns] = neutral_surfaces(ss,tt,pp,gg2,rholevels);
 

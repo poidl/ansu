@@ -16,7 +16,7 @@ function [mld_dpth] = mld(s,ct,p)
 %
 % Output:   mld       mixed-layer depth 
 %  
-% Calls:    gpoly16ct.m
+% Calls:    gsw_rho_CT_exact.m
 %
 % Units:    salinity                 psu (IPSS-78)
 %           conservative temperature degrees C (IPS-90)
@@ -46,7 +46,6 @@ mld_dpth = nan(yi,xi);
 
 %% calculate gamma^rf
 
-%dens = gpoly16ct(s,ct);
 dens = gsw_rho(s,ct,zeros(zi,yi,xi));
 
 %% calculate mixed layer depth

@@ -75,4 +75,4 @@ steric_int  = - cumsum([top;delta_steric]);
 p_mid_pa = 0.5 * (p_pa(2:end,:,:) + p_pa(1:end-1,:,:));
 streamfunc = var_on_surf(pns_pa,p_mid_pa,steric_int);
 
-streamfunc = change(streamfunc,'==',0,nan);
+streamfunc = change_ak(streamfunc,'==',0,nan);
