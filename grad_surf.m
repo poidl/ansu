@@ -1,4 +1,4 @@
-function [grad_x,grad_y] = grad_surf(var_surf,e1t,e2t)
+function [grad_x,grad_y] = grad_surf(var_surf,e1t,e2t,keyword,wrap)
 
 %           Find the gradient of a variable in x and y-direction.
 %
@@ -9,11 +9,11 @@ function [grad_x,grad_y] = grad_surf(var_surf,e1t,e2t)
 %           e1t                   zonal scale-factor at var_surf points 
 %           e2t                   meridional scale-factor at var_surf 
 %                                 points
-% %           keyword               'op' for slopes on var_surf points
-% %                                 'bp' for slopes between var_surf
-% %                                 points
-% %           wrap                  'none'
-% %                                 'long'
+%           keyword               'op' for slopes on var_surf points
+%                                 'bp' for slopes between var_surf
+%                                 points
+%           wrap                  'none'
+%                                 'long'
 %
 % Output:   grad_x                gradient in zonal direction 
 %           grad_y                gradient in meridional direction 
@@ -31,14 +31,9 @@ function [grad_x,grad_y] = grad_surf(var_surf,e1t,e2t)
 
 %% check input arguments
 
-if ~(nargin == 3)
-    error('grad_surf.m: requires 3 input arguments')
+if ~(nargin == 5)
+    error('grad_surf.m: requires 5 input arguments')
 end
-
-global settings
-
-wrap = settings.wrap;
-keyword = settings.keyword;
 
 %% calculate gradients
 

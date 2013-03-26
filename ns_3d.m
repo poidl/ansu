@@ -122,7 +122,7 @@ switch time_check
             gg = squeeze(rho(l,:,inds));
             gg2 = change_ak(gg,'<',0,NaN);
             
-            [s_ns,ct_ns,p_ns,ds_ns,dct_ns,dp_ns] = neutral_surfaces(ss,tt,pp,gg2,rholevels);
+            [s_ns,ct_ns,p_ns,ds_ns,dct_ns,dp_ns] = neutral_surfaces_new(ss,tt,pp,gg2,rholevels);
 
             % pack output into 4d g array
 

@@ -1,4 +1,4 @@
-function [e2t,e1t] = scale_fac(lats,longs)
+function [e2t,e1t] = scale_fac(lats,longs,wrap)
 
 %           Find distances between gridpoints of given latitude/longitude 
 %
@@ -31,13 +31,9 @@ function [e2t,e1t] = scale_fac(lats,longs)
 
 %% check input arguments
 
-if ~(nargin == 2)
-    error('scale_fac.m: requires 2 input arguments')
+if ~(nargin == 3)
+    error('scale_fac.m: requires 3 input arguments')
 end
-
-global settings
-
-wrap = settings.wrap;
 
 %% initialize and preallocate memory
 

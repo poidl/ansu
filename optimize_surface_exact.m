@@ -54,14 +54,14 @@ function [sns_i,ctns_i,pns_i,ithist] = optimize_surface_exact(s,ct,p,g,n2,sns,ct
 %   type 'analyze_surface_version' for version details
 %
 
-%% get size of 3-dim hydrography
-%global settings lats longs
-[zi,yi,xi] = size(s);
-
 wrap = settings.wrap;
 choice = settings.slope;
 solver = settings.solver;
 nit = settings.nit;
+
+%% get size of 3-dim hydrography
+%global settings lats longs
+[zi,yi,xi] = size(s);
 
 %% calculate buoyancy frequency on density surface
 
@@ -70,7 +70,7 @@ n2_ns = var_on_surf(pns,p_mid,n2);
 
 %% calculate slope errors/density gradient errors on initial density surface
 
-[ss,sx,sy,curl_s,ee,ex,ey,curl_e,ver] = slope_error(p,g,n2,sns,ctns,pns,e1t,e2t); %#ok
+[ss,sx,sy,curl_s,ee,ex,ey,curl_e,ver] = slope_error(p,g,n2,sns,ctns,pns,e1t,e2t,'bp',wrap); %#ok
 
 %% choice between minimizing slope errors or density gradient errors
 
@@ -104,12 +104,6 @@ end
 
 %% prepare data
 
-% longss = longs;
-% latss = lats;
-% clear longs lats
-% [longs,lats] = meshgrid(longss,latss);
-% clear latss longss
-
 slope_square = nan(nit,1);
 pns_squeeze = squeeze(pns);
 n2_ns_squeeze = squeeze(n2_ns);
@@ -122,6 +116,7 @@ pns_i_hist = nan(nit,yi,xi);
 depth_change_e_i_hist = nan(nit,yi,xi);
 depth_change_i_hist = nan(nit,yi,xi);
 r_hist = nan(nit);
+eps_ss=nan(nit,1);
 ppm = nan(nit,4);
 
 %% iterations of inversion
@@ -636,8 +631,11 @@ for it = 1:nit
     end
     tmp2=gsw_rho(squeeze(sns_l),squeeze(ctns_l),squeeze(pns_l));
     tmp3=repmat(permute(tmp2,[3,1,2]),[zi,1,1]);
-    tmp4=repmat(dummy_depth_change_e.*permute(tmp2,[3,1,2]),[zi,1,1]);
-    tni = (tmp1 - tmp3) - tmp4;
+    r=1.0;
+    tni= tmp1- tmp3.*(1+r*repmat(dummy_depth_change_e, [zi,1,1])); % rho-(rho_s+rho')
+    
+    delta = 1e-8;
+    
     pns_i = nan(1,yi,xi);
     ctns_i = nan(1,yi,xi);
     sns_i = nan(1,yi,xi);
@@ -654,29 +652,37 @@ for it = 1:nit
                 tni_count = 0;
                 while tnif == 0
                     tni_count = tni_count + 1;
-                    if min(abs(tni_temp)) > 0.000001
+                    if min(abs(tni_temp)) > delta % min(rho-rho_s-rho') 
                         Itni_p = find(tni_temp > 0);
                         Itni_n = find(tni_temp < 0);
                         if ~isempty(Itni_p) & ~isempty(Itni_n)
-                            [dummy tni_ui] = max(tni_temp(Itni_n));
-                            [dummy tni_li] = min(tni_temp(Itni_p));
+                            [dummy tni_ui] = max(tni_temp(Itni_n)); %stef: maximum of negative tni_temp ui 'upper index'
+                            [dummy tni_li] = min(tni_temp(Itni_p));   %stef: minimum of positive tni_tmp li 'lower index'
                             if tni_count > 100
                                 tni_li = tni_ui + 10;
                             end
-                            %stef: devide by 100 instead of iteration,
-                            %which is slower
-                            s_dummy = [s_temp(Itni_n(tni_ui)): (s_temp(Itni_p(tni_li))-s_temp(Itni_n(tni_ui)))/100 :s_temp(Itni_p(tni_li))];
-                            ct_dummy = [ct_temp(Itni_n(tni_ui)): (ct_temp(Itni_p(tni_li))-ct_temp(Itni_n(tni_ui)))/100 :ct_temp(Itni_p(tni_li))];
-                            p_dummy = [p_temp(Itni_n(tni_ui)): (p_temp(Itni_p(tni_li))-p_temp(Itni_n(tni_ui)))/100 :p_temp(Itni_p(tni_li))];
+                            %stef: devide by 100 instead of iteration, which is slower
+                            ii1=Itni_p(tni_li);
+                            ii2=Itni_n(tni_ui);
+                            ds_ =  ( s_temp(ii1) - s_temp(ii2))/100;
+                            dct_ = (ct_temp(ii1) - ct_temp(ii2))/100;
+                            dp_ =  (p_temp(ii1) - p_temp(ii2))/100;
+                            s_dummy =  [s_temp(ii2):    ds_   :s_temp(ii1)];
+                            ct_dummy = [ct_temp(ii2):  dct_  :ct_temp(ii1)];
+                            p_dummy =  [p_temp(ii2):   dp_  :p_temp(ii1)];
                             
                             if isempty(s_dummy) | isempty(ct_dummy) | isempty(p_dummy)
                                 expand_tni = 0;
                                 try
                                     while expand_tni == 0
                                         tni_li = tni_li + 1;
-                                        s_dummy = [s_temp(Itni_n(tni_ui)): (s_temp(Itni_p(tni_li))-s_temp(Itni_n(tni_ui)))/100 :s_temp(Itni_p(tni_li))];
-                                        ct_dummy = [ct_temp(Itni_n(tni_ui)): (ct_temp(Itni_p(tni_li))-ct_temp(Itni_n(tni_ui)))/100 :ct_temp(Itni_p(tni_li))];
-                                        p_dummy = [p_temp(Itni_n(tni_ui)): (p_temp(Itni_p(tni_li))-p_temp(Itni_n(tni_ui)))/100 :p_temp(Itni_p(tni_li))];
+                                        ii1=Itni_p(tni_li);
+                                        ds_ =  ( s_temp(ii1) - s_temp(ii2))/100;
+                                        dct_ = (ct_temp(ii1) - ct_temp(ii2))/100;
+                                        dp_ =  (p_temp(ii1) - p_temp(ii2))/100;
+                                        s_dummy = [s_temp(ii2): ds_ :s_temp(ii1)];
+                                        ct_dummy = [ct_temp(ii2): dct_ :ct_temp(ii1)];
+                                        p_dummy = [p_temp(ii2): dp_ :p_temp(ii1)];
                                         if ~isempty(s_dummy) & ~isempty(ct_dummy) & ~isempty(p_dummy)
                                             expand_tni = 1;
                                         end
@@ -690,7 +696,9 @@ for it = 1:nit
                             if tnif ~= 1
                                 ms1 = length(s_dummy);
                                 
-                                tni_temp = (gsw_rho(s_dummy(:),ct_dummy(:),repmat(pns_l(1,ii_tni,jj_tni),[ms1,1,1])) - repmat(gsw_rho(sns_l(1,ii_tni,jj_tni),ctns_l(1,ii_tni,jj_tni),pns_l(1,ii_tni,jj_tni)),[ms1,1,1])) - repmat((dummy_depth_change_e(1,ii_tni,jj_tni).*gsw_rho(sns_l(1,ii_tni,jj_tni),ctns_l(1,ii_tni,jj_tni),pns_l(1,ii_tni,jj_tni))),[ms1,1,1]);
+                                tmp1=gsw_rho(s_dummy(:),ct_dummy(:),repmat(pns_l(1,ii_tni,jj_tni),[ms1,1,1]));
+                                tmp2=repmat(gsw_rho(sns_l(1,ii_tni,jj_tni),ctns_l(1,ii_tni,jj_tni),pns_l(1,ii_tni,jj_tni)),[ms1,1,1]);
+                                tni_temp=tmp1-tmp2.*(1+repmat(dummy_depth_change_e(1,ii_tni,jj_tni),[ms1,1,1]));
                                                                 
                                 s_temp = s_dummy;
                                 ct_temp = ct_dummy;
@@ -721,7 +729,7 @@ for it = 1:nit
     n2_ns_i = var_on_surf(pns_i,p_mid,n2);
     
     [ss_i,sx_i,sy_i,curl_s_i,ee_i,ex_i,ey_i,curl_e_i] = ...
-        slope_error(p,g,n2,sns_i,ctns_i,pns_i,e1t,e2t); %#ok
+        slope_error(p,g,n2,sns_i,ctns_i,pns_i,e1t,e2t,'bp',wrap); %#ok
     
     
     % calculate epsilon^2 to estimate quality of approximate neutral
@@ -751,95 +759,15 @@ for it = 1:nit
     ppm(it,3) = std(abs(jnk1(find(~isnan(jnk1)))));
     ppm(it,4) = nansum(abs(jnk1(find(~isnan(jnk1)))))/length(find(~isnan(jnk1)));
     phi_prime_rms = ppm(it,2) - ppm(it,1);
-    
+                        
+end
+
     ithist.sns_i = sns_i_hist;
     ithist.ctns_i = ctns_i_hist;
     ithist.pns_i = pns_i_hist;
     ithist.depth_change_e_i = depth_change_e_i_hist;
     ithist.eps_ss = eps_ss;
 
-    % save variables for postprocessing 
-    %vars = {'sns_i_hist','ctns_i_hist','pns_i_hist','depth_change_e_i_hist','eps_ss'};
-    %save('/home/z3439823/mymatlab/omega/data_stefan/ansu_hist.mat', vars{:})
-    %save('/home/z3439823/mymatlab/omega/data_stefan/ansu_hist_zero_hel.mat', vars{:})
-    
-    
-%     if (it == 1) | (mod(it,7) == 0)
-%         figure('Position',[20, 20, 1000, 800])
-%         [hax,hax_noxlabel,hax_noylabel,hax_left,hax_bottom] = nfigaxes([3 2],[0.06 0.06],[0.1 0.9],[0.1 0.9]);
-%     end
-%     if it > 6
-%         sp_pos = mod(it,7) + 1; % plot every iteration
-%     else
-%         sp_pos = mod(it,7);
-%     end
-%     %stef: every 7th iteration  possibility to stop
-%     if mod(it,7) == 0
-%         keyboard
-%     end
-% % 
-% %         figure('Position',[20, 20, 1000, 800])
-% %         [hax,hax_noxlabel,hax_noylabel,hax_left,hax_bottom] = nfigaxes([3 2],[0.02 0.02],[0.05 0.95],[0.05 0.95]);
-%         
-%         axes(hax(sp_pos))
-%         lon=squeeze(longs(1,1,:))
-%         lat=squeeze(lats(1,:,1))
-%         h=imagesc(lon,lat,depth_change_e)
-%         set(h,'alphadata',~isnan(depth_change_e))
-%         set(gca,'YDir','normal')
-%         title(['\phi '' for ',num2str(it),'^t^h iteration '],'fontsize',20,'fontweight','bold')
-%         caxis([(mean(jnk1(find(~isnan(jnk1)))) - 2*std(jnk1(find(~isnan(jnk1))))) (mean(jnk1(find(~isnan(jnk1)))) + 2*std(jnk1(find(~isnan(jnk1)))))])
-%         colorbar
-%         hold on
-%         coast('k',1)
-%         axis([min(lon) max(lon) min(lat) max(lat)])
-%         hold off
-        
- %         axes(hax(2))
-%         semilogy(eps_ss)
-%         hold on
-%         semilogy(eps_ss2,'r')
-%         % xlabel('Iteration','fontsize',20,'fontweight','bold')
-%         title('Evolution of Veronis error','fontsize',20,'fontweight','bold')
-%         switch choice
-%             case 'epsilon'
-%                 ylabel('Mean \epsilon','fontsize',20,'fontweight','bold')
-%             case 's'
-%                 ylabel('s^2','fontsize',20,'fontweight','bold')
-%         end
-%         grid on
-%         hold off
-        %stef: compare progress of iteration
-%         axes(hax(2))
-%         ddd = squeeze(pns_i_hist(it,:,:)) - squeeze(pns_i_hist(1,:,:));
-%         fpcolor(longs',lats',ddd')
-%         title(['Over all depth change'],'fontsize',20,'fontweight','bold')
-%         jnk = ddd(:);
-%         caxis([(mean(jnk(find(~isnan(jnk)))) - 2*std(jnk(find(~isnan(jnk))))) (mean(jnk(find(~isnan(jnk)))) + 2*std(jnk(find(~isnan(jnk)))))])
-%         colorbar
-%         hold on
-%         coast('k',1)
-%         axis([min(min(longs)) max(max(longs)) min(min(lats)) max(max(lats))])
-%         hold off
-% 
-%         axes(hax(3))
-%         plot([1:it],ppm(1:it,3),'r',[1:it],ppm(1:it,4),'b',[1:it],(ppm(1:it,2) - ppm(1:it,1)) ,'c')
-%         title('\phi ''','fontsize',20,'fontweight','bold')
-%         hold on
-%         grid on
-%         hold off
-%         
-%         axes(hax(4))
-%         fpcolor(longs',lats',squeeze(pns_i(1,:,:))')
-%         title(['Depth of this iteration'],'fontsize',20,'fontweight','bold')
-%         colorbar
-%         hold on
-%         coast('k',1)
-%         axis([min(min(longs)) max(max(longs)) min(min(lats)) max(max(lats))])
-%         hold off
-                        
-    end
-    pause(1)
 end
 
 
