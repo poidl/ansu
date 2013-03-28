@@ -90,17 +90,6 @@ cut_off_choice(1,1:yi,1:xi) = mld(s,ct,p);
 [pns] = cut_off(pns,pns,cut_off_choice);
 [n2_ns] = cut_off(n2_ns,pns,cut_off_choice);
 
-switch choice
-    case 's'
-        keyboard
-    case 'epsilon'
-        [ex_o] = cut_off(ex,pns,cut_off_choice);
-        [ey_o] = cut_off(ey,pns,cut_off_choice);
-        square_o = ex_o .* ex_o + ey_o .* ey_o;
-        slope_square_o = nansum(square_o(:));
-        no_pts = length(find(~isnan(square_o(:))));
-        % eps_ss(1,1) = sqrt(slope_square_o/no_pts);
-end
 
 %% prepare data
 
@@ -114,19 +103,12 @@ sns_i_hist = nan(nit,yi,xi);
 ctns_i_hist = nan(nit,yi,xi);
 pns_i_hist = nan(nit,yi,xi);
 depth_change_e_i_hist = nan(nit,yi,xi);
-depth_change_i_hist = nan(nit,yi,xi);
-r_hist = nan(nit);
 eps_ss=nan(nit,1);
 ppm = nan(nit,4);
 
 %% iterations of inversion
-it = 0;
-phiprime = 0;
-
 
 for it = 1:nit
-    
-    %it = it + 1;
     
     disp(['Iteration nr.',int2str(it)]); % print number of iteration
     
@@ -185,135 +167,25 @@ for it = 1:nit
     % table to see which gridpoints communicate with each other
     
     neighbour = nan(5,length(inds));
+    wet=~isnan(n2_ns_squeeze);
     
-    switch wrap
-        
-        case 'none'
-            
-            for i = 1:length(inds)
-                
-                [jj,ii] = ind2sub([yi,xi],inds(i));
-                
-                if (jj == 1) && (ii == 1)
-                    neighbour(1,i) = ng(jj,ii);
-                    neighbour(2,i) = ng(jj,ii+1);
-                    neighbour(3,i) = nan;
-                    neighbour(4,i) = ng(jj+1,ii);
-                    neighbour(5,i) = nan;
-                elseif (jj == yi) && (ii == xi)
-                    neighbour(1,i) = ng(jj,ii);
-                    neighbour(2,i) = nan;
-                    neighbour(3,i) = ng(jj,ii-1);
-                    neighbour(4,i) = nan;
-                    neighbour(5,i) = ng(jj-1,ii);
-                elseif (jj == 1) && (ii == xi)
-                    neighbour(1,i) = ng(jj,ii);
-                    neighbour(2,i) = nan;
-                    neighbour(3,i) = ng(jj,ii-1);
-                    neighbour(4,i) = ng(jj+1,ii);
-                    neighbour(5,i) = nan;
-                elseif (jj == yi) && (ii == 1)
-                    neighbour(1,i) = ng(jj,ii);
-                    neighbour(2,i) = ng(jj,ii+1);
-                    neighbour(3,i) = nan;
-                    neighbour(4,i) = nan;
-                    neighbour(5,i) = ng(jj-1,ii);
-                elseif (jj == 1)
-                    neighbour(1,i) = ng(jj,ii);
-                    neighbour(2,i) = ng(jj,ii+1);
-                    neighbour(3,i) = ng(jj,ii-1);
-                    neighbour(4,i) = ng(jj+1,ii);
-                    neighbour(5,i) = nan;
-                elseif (ii == 1)
-                    neighbour(1,i) = ng(jj,ii);
-                    neighbour(2,i) = ng(jj,ii+1);
-                    neighbour(3,i) = nan;
-                    neighbour(4,i) = ng(jj+1,ii);
-                    neighbour(5,i) = ng(jj-1,ii);
-                elseif (jj == yi)
-                    neighbour(1,i) = ng(jj,ii);
-                    neighbour(2,i) = ng(jj,ii+1);
-                    neighbour(3,i) = ng(jj,ii-1);
-                    neighbour(4,i) = nan;
-                    neighbour(5,i) = ng(jj-1,ii);
-                elseif (ii == xi)
-                    neighbour(1,i) = ng(jj,ii);
-                    neighbour(2,i) = nan;
-                    neighbour(3,i) = ng(jj,ii-1);
-                    neighbour(4,i) = ng(jj+1,ii);
-                    neighbour(5,i) = ng(jj-1,ii);
-                else
-                    neighbour(1,i) = ng(jj,ii);
-                    neighbour(2,i) = ng(jj,ii+1);
-                    neighbour(3,i) = ng(jj,ii-1);
-                    neighbour(4,i) = ng(jj+1,ii);
-                    neighbour(5,i) = ng(jj-1,ii);
-                end
-            end
-            
-        case 'long'
-            
-            for i = 1:length(inds)
-                
-                [jj,ii] = ind2sub([yi,xi],inds(i));
-                
-                if (jj == 1) && (ii == 1)
-                    neighbour(1,i) = ng(jj,ii);
-                    neighbour(2,i) = ng(jj,ii+1);
-                    neighbour(3,i) = ng(jj,xi);
-                    neighbour(4,i) = ng(jj+1,ii);
-                    neighbour(5,i) = nan;
-                elseif (jj == yi) && (ii == xi)
-                    neighbour(1,i) = ng(jj,ii);
-                    neighbour(2,i) = ng(jj,1);
-                    neighbour(3,i) = ng(jj,ii-1);
-                    neighbour(4,i) = nan;
-                    neighbour(5,i) = ng(jj-1,ii);
-                elseif (jj == 1) && (ii == xi)
-                    neighbour(1,i) = ng(jj,ii);
-                    neighbour(2,i) = ng(jj,1);
-                    neighbour(3,i) = ng(jj,ii-1);
-                    neighbour(4,i) = ng(jj+1,ii);
-                    neighbour(5,i) = nan;
-                elseif (jj == yi) && (ii == 1)
-                    neighbour(1,i) = ng(jj,ii);
-                    neighbour(2,i) = ng(jj,ii+1);
-                    neighbour(3,i) = ng(jj,xi);
-                    neighbour(4,i) = nan;
-                    neighbour(5,i) = ng(jj-1,ii);
-                elseif (jj == 1)
-                    neighbour(1,i) = ng(jj,ii);
-                    neighbour(2,i) = ng(jj,ii+1);
-                    neighbour(3,i) = ng(jj,ii-1);
-                    neighbour(4,i) = ng(jj+1,ii);
-                    neighbour(5,i) = nan;
-                elseif (ii == 1)
-                    neighbour(1,i) = ng(jj,ii);
-                    neighbour(2,i) = ng(jj,ii+1);
-                    neighbour(3,i) = ng(jj,xi);
-                    neighbour(4,i) = ng(jj+1,ii);
-                    neighbour(5,i) = ng(jj-1,ii);
-                elseif (jj == yi)
-                    neighbour(1,i) = ng(jj,ii);
-                    neighbour(2,i) = ng(jj,ii+1);
-                    neighbour(3,i) = ng(jj,ii-1);
-                    neighbour(4,i) = nan;
-                    neighbour(5,i) = ng(jj-1,ii);
-                elseif (ii == xi)
-                    neighbour(1,i) = ng(jj,ii);
-                    neighbour(2,i) = ng(jj,1);
-                    neighbour(3,i) = ng(jj,ii-1);
-                    neighbour(4,i) = ng(jj+1,ii);
-                    neighbour(5,i) = ng(jj-1,ii);
-                else
-                    neighbour(1,i) = ng(jj,ii);
-                    neighbour(2,i) = ng(jj,ii+1);
-                    neighbour(3,i) = ng(jj,ii-1);
-                    neighbour(4,i) = ng(jj+1,ii);
-                    neighbour(5,i) = ng(jj-1,ii);
-                end
-            end
+    ii=[1:xi*yi]';
+
+    ii(~wet)=nan;
+    jp1=circshift(ii,-1); % j plus one
+    jm1=circshift(ii,1); % j minus one
+    im1=circshift(ii,yi);
+    ip1=circshift(ii,-yi);
+    if strcmp(wrap,'none')
+            im1(1:yi)=nan;
+            ip1(yi*(xi-1)+1:yi*xi)=nan;
     end
+    neighbour(1,:)=ii(wet);
+    neighbour(4,:)=jp1(wet);
+    neighbour(5,:)=jm1(wet);
+    neighbour(3,:)=im1(wet);
+    neighbour(2,:)=ip1(wet);
+    
     
     nregion = 0;
     region_matrix = nan(yi,xi);
@@ -634,7 +506,7 @@ for it = 1:nit
     r=1.0;
     tni= tmp1- tmp3.*(1+r*repmat(dummy_depth_change_e, [zi,1,1])); % rho-(rho_s+rho')
     
-    delta = 1e-8;
+    delta = 1e-6;
     
     pns_i = nan(1,yi,xi);
     ctns_i = nan(1,yi,xi);
@@ -698,7 +570,7 @@ for it = 1:nit
                                 
                                 tmp1=gsw_rho(s_dummy(:),ct_dummy(:),repmat(pns_l(1,ii_tni,jj_tni),[ms1,1,1]));
                                 tmp2=repmat(gsw_rho(sns_l(1,ii_tni,jj_tni),ctns_l(1,ii_tni,jj_tni),pns_l(1,ii_tni,jj_tni)),[ms1,1,1]);
-                                tni_temp=tmp1-tmp2.*(1+repmat(dummy_depth_change_e(1,ii_tni,jj_tni),[ms1,1,1]));
+                                tni_temp=tmp1-tmp2.*(1+r*repmat(dummy_depth_change_e(1,ii_tni,jj_tni),[ms1,1,1]));
                                                                 
                                 s_temp = s_dummy;
                                 ct_temp = ct_dummy;
