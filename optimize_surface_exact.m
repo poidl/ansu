@@ -174,7 +174,7 @@ for it = 1:nit
                 if ii~=jj && ~(merged(iw(ii)) || merged(iw(jj)))
                     pts1=cc.PixelIdxList{iw(ii)};
                     pts2=cc.PixelIdxList{iw(jj)};
-                    % check if western boarder of region iw(ii) intersects
+                    % check if western border of region iw(ii) intersects
                     % with eastern border of region iw(jj), or vice versa
                     cond1=~isempty( intersect( pts1(pts1<=yi)+yi*(xi-1),pts2(pts2>yi*(xi-1)) ) );
                     cond2=~isempty( intersect( pts2(pts2<=yi)+yi*(xi-1),pts1(pts1>yi*(xi-1)) ) );
@@ -280,13 +280,11 @@ for it = 1:nit
         eval(['region_',int2str(nregion),' = region;']);
         
     end
+
+      
     
-%     if (it > 1)
-%         pns_old = pns_i;
-%     else
-%         pns_old = pns;
-%     end
-    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    dummy_depth_change_e(1,:,:) = (-1).*depth_change_e;
     if (it > 1)
         pns_l = pns_i;
         sns_l = sns_i;
@@ -296,113 +294,93 @@ for it = 1:nit
         sns_l = sns;
         ctns_l = ctns;
     end
-
-    % calculate new depth of approximate neutral surface
     
-    %keyboard
-    [zi,yi,xi] = size(s);
-    %[ms1 ms2 ms3] = size(s);
-    clear dummy_depth_change_e
-    dummy_depth_change_e(1,:,:) = (-1).*depth_change_e;
-    clear tni
-    tmp1=nan*ones(size(s));
-    for kk=1:size(s,1)
-        tmp1(kk,:,:)=gsw_rho(squeeze(s(kk,:,:)),squeeze(ct(kk,:,:)),squeeze(pns_l));
-    end
-    tmp2=gsw_rho(squeeze(sns_l),squeeze(ctns_l),squeeze(pns_l));
-    tmp3=repmat(permute(tmp2,[3,1,2]),[zi,1,1]);
     r=1.0;
-    tni= tmp1- tmp3.*(1+r*repmat(dummy_depth_change_e, [zi,1,1])); % rho-(rho_s+rho')
-    
     delta = 1e-6;
+
+    t2=gsw_rho(sns_l(:),ctns_l(:),pns_l(:));
+    t2=t2.*(1+r*dummy_depth_change_e(:)); % rho_s+rho'
     
-    pns_i = nan(1,yi,xi);
-    ctns_i = nan(1,yi,xi);
-    sns_i = nan(1,yi,xi);
-    %stef: this finds the dz from qhi'
-    for ii_tni = 1:yi
-        for jj_tni = 1:xi
-            [Itni] = find(~isnan(tni(:,ii_tni,jj_tni)));
-            if ~isempty(Itni)
-                tni_temp = tni(Itni,ii_tni,jj_tni);
-                s_temp = s(Itni,ii_tni,jj_tni);
-                ct_temp =ct(Itni,ii_tni,jj_tni);
-                p_temp = p(Itni,ii_tni,jj_tni);
-                tnif = 0;
-                tni_count = 0;
-                while tnif == 0
-                    tni_count = tni_count + 1;
-                    if min(abs(tni_temp)) > delta % min(rho-rho_s-rho') 
-                        Itni_p = find(tni_temp > 0);
-                        Itni_n = find(tni_temp < 0);
-                        if ~isempty(Itni_p) & ~isempty(Itni_n)
-                            [dummy tni_ui] = max(tni_temp(Itni_n)); %stef: maximum of negative tni_temp ui 'upper index'
-                            [dummy tni_li] = min(tni_temp(Itni_p));   %stef: minimum of positive tni_tmp li 'lower index'
-                            if tni_count > 100
-                                tni_li = tni_ui + 10;
-                            end
-                            %stef: devide by 100 instead of iteration, which is slower
-                            ii1=Itni_p(tni_li);
-                            ii2=Itni_n(tni_ui);
-                            ds_ =  ( s_temp(ii1) - s_temp(ii2))/100;
-                            dct_ = (ct_temp(ii1) - ct_temp(ii2))/100;
-                            dp_ =  (p_temp(ii1) - p_temp(ii2))/100;
-                            s_dummy =  [s_temp(ii2):    ds_   :s_temp(ii1)];
-                            ct_dummy = [ct_temp(ii2):  dct_  :ct_temp(ii1)];
-                            p_dummy =  [p_temp(ii2):   dp_  :p_temp(ii1)];
-                            
-                            if isempty(s_dummy) | isempty(ct_dummy) | isempty(p_dummy)
-                                expand_tni = 0;
-                                try
-                                    while expand_tni == 0
-                                        tni_li = tni_li + 1;
-                                        ii1=Itni_p(tni_li);
-                                        ds_ =  ( s_temp(ii1) - s_temp(ii2))/100;
-                                        dct_ = (ct_temp(ii1) - ct_temp(ii2))/100;
-                                        dp_ =  (p_temp(ii1) - p_temp(ii2))/100;
-                                        s_dummy = [s_temp(ii2): ds_ :s_temp(ii1)];
-                                        ct_dummy = [ct_temp(ii2): dct_ :ct_temp(ii1)];
-                                        p_dummy = [p_temp(ii2): dp_ :p_temp(ii1)];
-                                        if ~isempty(s_dummy) & ~isempty(ct_dummy) & ~isempty(p_dummy)
-                                            expand_tni = 1;
-                                        end
-                                    end
-                                catch
-                                    pns_i(1,ii_tni,jj_tni) = NaN;
-                                    tnif = 1;
-                                    expand_tni = 1;
-                                end
-                            end
-                            if tnif ~= 1
-                                ms1 = length(s_dummy);
-                                
-                                tmp1=gsw_rho(s_dummy(:),ct_dummy(:),repmat(pns_l(1,ii_tni,jj_tni),[ms1,1,1]));
-                                tmp2=repmat(gsw_rho(sns_l(1,ii_tni,jj_tni),ctns_l(1,ii_tni,jj_tni),pns_l(1,ii_tni,jj_tni)),[ms1,1,1]);
-                                tni_temp=tmp1-tmp2.*(1+r*repmat(dummy_depth_change_e(1,ii_tni,jj_tni),[ms1,1,1]));
-                                                                
-                                s_temp = s_dummy;
-                                ct_temp = ct_dummy;
-                                p_temp = p_dummy;
-                                
-                            end
-                        else
-                            pns_i(1,ii_tni,jj_tni) = NaN;
-                            tnif = 1;
-                        end
-                    else
-                        %stef: save fields from every iteration
-                        [dummy Iminr] = min(abs(tni_temp));
-                        pns_i(1,ii_tni,jj_tni) = p_temp(Iminr);
-                        ctns_i(1,ii_tni,jj_tni) = ct_temp(Iminr);
-                        sns_i(1,ii_tni,jj_tni) = s_temp(Iminr);
-                        
-                        tnif = 1;
-                    end
-                end
-            end
+    inds=1:yi*xi;
+    fr=true(1,yi*xi);
+    s_tmp=s;
+    ct_tmp=ct;
+    p_tmp=p;
+    pns_tmp = nan(1,yi,xi);
+    sns_tmp = nan(1,yi,xi);
+    ctns_tmp = nan(1,yi,xi);
+    pns_l=pns_l(:);
+
+    refine_ints=100;
+    
+    cnt=0;
+    while 1
+        cnt=cnt+1;
+        inds=inds(fr);
+         
+        if cnt==1 % in first iteration pns_l is stacked vertically zi times, after that it is stacked refine_ints times
+            stack=zi;
+            ii=bsxfun(@times,1:yi*xi,ones(stack,1)); % in first iteration pns_l is stacked vertically zi times, after that it is stacked refine_ints times
+            pns_l_3d=pns_l(ii);
+            t2_3d_full=t2(ii);
+        elseif cnt==2
+            stack=refine_ints+1;
+            ii=bsxfun(@times,1:yi*xi,ones(stack,1)); % in first iteration pns_l is stacked vertically zi times, after that it is stacked refine_ints times
+            pns_l_3d=pns_l(ii);
+            t2_3d_full=t2(ii);
         end
+        
+        t1=gsw_rho(s_tmp(:,:),ct_tmp(:,:),pns_l_3d(:,inds));
+        t2_3d=t2_3d_full(:,inds);
+        tni=t1-t2_3d; % rho-(rho_s+rho')
+        
+        Itni_p = tni>0;
+        Itni_n = tni<0;
+        
+        zc = any(Itni_p,1) & any(Itni_n,1); % horizontal indices of locations where zero-crossing occurs
+        cond1=min(abs(tni))>delta; 
+        final=min(abs(tni))<=delta; 
+        fr= zc & cond1; % adjust surface depth here (find root)
+
+        [dummy Iminr] = min(abs(tni(:,final)));
+        s_h=s_tmp(:,final);
+        ct_h=ct_tmp(:,final);
+        p_h=p_tmp(:,final);
+   
+        sns_tmp(inds(final))=s_h(Iminr+stack*[0:sum(final)-1]);
+        ctns_tmp(inds(final)) = ct_h(Iminr+stack*[0:sum(final)-1]);
+        pns_tmp(inds(final)) = p_h(Iminr+stack*[0:sum(final)-1]);
+
+        if all(~fr)
+            break      
+        end
+
+        k=sum(Itni_n,1);
+        k=k(fr);
+        gr=[1:size(Itni_n,2)];
+        gr=gr(fr);
+        tmp= stack*(gr-1);
+        k=k+tmp; % k indices of flattened 3d array
+
+        ds_ =  ( s_tmp(k+1) - s_tmp(k))/refine_ints;
+        dct_ = (ct_tmp(k+1) - ct_tmp(k))/refine_ints;
+        dp_ =  (p_tmp(k+1) - p_tmp(k))/refine_ints;
+
+        ds_ =bsxfun(@times, ds_, [0:refine_ints]');
+        dct_ = bsxfun(@times, dct_, [0:refine_ints]');
+        dp_ = bsxfun(@times, dp_, [0:refine_ints]');
+
+        s_tmp =  bsxfun(@plus,s_tmp(k),ds_);
+        ct_tmp =  bsxfun(@plus,ct_tmp(k),dct_);
+        p_tmp =  bsxfun(@plus,p_tmp(k),dp_);
+
     end
       
+    pns_i=pns_tmp;
+    ctns_i=ctns_tmp;
+    sns_i=sns_tmp;
+      
+
     % calculate slope errors and buoyancy frequency on new
     % approximate neutral surface
     
