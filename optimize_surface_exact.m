@@ -252,8 +252,6 @@ for it = 1:nit
         A=sparse([i1,i2],[j1,j2],[ones(1,length(i1)),-ones(1,length(i2))]);
         b=sparse( [xx_squeeze(en).*e1t(en); yy_squeeze(nn).*e2t(nn); 0 ]);
         
-
-        
         disp(['solving for region ',int2str(nregion)]);
         %stef: 'exact' gets to the solution quicker but requires more
         %memory
@@ -320,12 +318,11 @@ for it = 1:nit
          
         if cnt==1 % in first iteration pns_l is stacked vertically zi times, after that it is stacked refine_ints times
             stack=zi;
-            ii=bsxfun(@times,1:yi*xi,ones(stack,1)); % in first iteration pns_l is stacked vertically zi times, after that it is stacked refine_ints times
-            pns_l_3d=pns_l(ii);
-            t2_3d_full=t2(ii);
         elseif cnt==2
             stack=refine_ints+1;
-            ii=bsxfun(@times,1:yi*xi,ones(stack,1)); % in first iteration pns_l is stacked vertically zi times, after that it is stacked refine_ints times
+        end
+        if cnt==1 | cnt==2
+            ii=bsxfun(@times,1:yi*xi,ones(stack,1)); 
             pns_l_3d=pns_l(ii);
             t2_3d_full=t2(ii);
         end
@@ -338,30 +335,27 @@ for it = 1:nit
         Itni_n = tni<0;
         
         zc = any(Itni_p,1) & any(Itni_n,1); % horizontal indices of locations where zero-crossing occurs
-        cond1=min(abs(tni))>delta; 
-        final=min(abs(tni))<=delta; 
+        [min_tni, lminr]=min(abs(tni));
+        cond1=min_tni>delta; 
+        final=min_tni<=delta; 
         fr= zc & cond1; % adjust surface depth here (find root)
+        
+        lminr=lminr+stack*[0:size(Itni_n,2)-1];
+        lminr=lminr(final);
+        
+        sns_tmp(inds(final))=s_tmp(lminr);
+        ctns_tmp(inds(final)) =ct_tmp(lminr);
+        pns_tmp(inds(final)) =p_tmp(lminr);
 
-        [dummy Iminr] = min(abs(tni(:,final)));
-        s_h=s_tmp(:,final);
-        ct_h=ct_tmp(:,final);
-        p_h=p_tmp(:,final);
-   
-        sns_tmp(inds(final))=s_h(Iminr+stack*[0:sum(final)-1]);
-        ctns_tmp(inds(final)) = ct_h(Iminr+stack*[0:sum(final)-1]);
-        pns_tmp(inds(final)) = p_h(Iminr+stack*[0:sum(final)-1]);
 
         if all(~fr)
             break      
         end
 
         k=sum(Itni_n,1);
-        k=k(fr);
-        gr=[1:size(Itni_n,2)];
-        gr=gr(fr);
-        tmp= stack*(gr-1);
-        k=k+tmp; % k indices of flattened 3d array
-
+        k=k+stack*[0:size(Itni_n,2)-1];
+        k=k(fr); 
+        
         ds_ =  ( s_tmp(k+1) - s_tmp(k))/refine_ints;
         dct_ = (ct_tmp(k+1) - ct_tmp(k))/refine_ints;
         dp_ =  (p_tmp(k+1) - p_tmp(k))/refine_ints;
