@@ -59,95 +59,103 @@ choice = settings.slope;
 solver = settings.solver;
 nit = settings.nit;
 
-%% get size of 3-dim hydrography
-%global settings lats longs
+
+
 [zi,yi,xi] = size(s);
 
 %% calculate buoyancy frequency on density surface
 
 p_mid = 0.5*(p(2:zi,:,:) + p(1:zi-1,:,:));
-n2_ns = var_on_surf(pns,p_mid,n2);
-
-%% calculate slope errors/density gradient errors on initial density surface
-
-[ss,sx,sy,curl_s,ee,ex,ey,curl_e,ver] = slope_error(p,g,n2,sns,ctns,pns,e1t,e2t,'bp',wrap); %#ok
-
-%% choice between minimizing slope errors or density gradient errors
-
-switch choice
-    case 's'
-        xx = sx;
-        yy = sy;
-    case 'epsilon'
-        xx = ex;
-        yy = ey;
-end
-
-%% disregard data above mixed layer depth
-
-cut_off_choice(1,1:yi,1:xi) = mld(s,ct,p);
-
-[pns] = cut_off(pns,pns,cut_off_choice);
-[n2_ns] = cut_off(n2_ns,pns,cut_off_choice);
 
 
 %% prepare data
+slope_square = nan(nit+1,1);
 
-slope_square = nan(nit,1);
-pns_squeeze = squeeze(pns);
-n2_ns_squeeze = squeeze(n2_ns);
-xx_squeeze = squeeze(xx);
-yy_squeeze = squeeze(yy);
+sns_hist = nan(nit+1,yi,xi); % store variables on initial surface and on nit improvements (=> nit+1)
+ctns_hist = nan(nit+1,yi,xi);
+pns_hist = nan(nit+1,yi,xi);
+eps_ss=nan(nit+1,1);
 
-sns_i_hist = nan(nit,yi,xi);
-ctns_i_hist = nan(nit,yi,xi);
-pns_i_hist = nan(nit,yi,xi);
-depth_change_e_i_hist = nan(nit,yi,xi);
-eps_ss=nan(nit,1);
-ppm = nan(nit,4);
+depth_change_e_hist = nan(nit,yi,xi);
+
+cut_off_choice(1,1:yi,1:xi) = mld(s,ct,p);
+
 
 %% iterations of inversion
+    
+it=0; % start with it=0 and increment it after the initial surface is written to output
+while it<=nit;
+    
+    n2_ns = var_on_surf(pns,p_mid,n2);
 
-for it = 1:nit
+    %% calculate slope errors/density gradient errors on initial density surface
+
+    [ss,sx,sy,curl_s,ee,ex,ey,curl_e,ver] = slope_error(p,g,n2,sns,ctns,pns,e1t,e2t,'bp',wrap); %#ok
     
-    disp(['Iteration nr.',int2str(it)]); % print number of iteration
     
-    if (it > 1)
-        
-        % disregard data above mixed layer depth
-        
-        [pns_i] = cut_off(pns_i,pns_i,cut_off_choice);
-        [n2_ns_i] = cut_off(n2_ns_i,pns_i,cut_off_choice);
-        
-        % prepare data for next iteration
-        
-        pns_squeeze = squeeze(pns_i);
-        n2_ns_squeeze = squeeze(n2_ns_i);
-        
-        switch choice
-            case 'epsilon'
-                [ex_i] = cut_off(ex_i,pns_i,cut_off_choice);
-                [ey_i] = cut_off(ey_i,pns_i,cut_off_choice);
-                xx_squeeze = squeeze(ex_i);
-                yy_squeeze = squeeze(ey_i);
-            case 's'
-                [sx_i] = cut_off(sx_i,pns_i,cut_off_choice);
-                [sy_i] = cut_off(sy_i,pns_i,cut_off_choice);
-                xx_squeeze = squeeze(sx_i);
-                yy_squeeze = squeeze(sy_i);
-        end
+    %% diagnose
+    switch choice
+        case 'epsilon'
+            square = ex .* ex + ey .* ey;
+            slope_square(it+1,1) = nansum(square(:));
+            no_pts = length(find(~isnan(square(:))));
+            eps_ss(it+1,1) = sqrt(slope_square(it+1,1)/no_pts);
+            
+        case 's'
+            square = sx .* sx + sy .* sy;
+            slope_square(it+1,1) = nansum(square(:));
+    end
+   
+    % store history
+     
+    sns_hist(it+1,:,:) = squeeze(sns);
+    ctns_hist(it+1,:,:) = squeeze(ctns);
+    pns_hist(it+1,:,:) = squeeze(pns(1,:,:));
+    
+    if it>0;
+        depth_change_e_hist(it,:,:) = squeeze(depth_change_e);
     end
     
-    [yi,xi] = size(pns_squeeze); % find dimensions in lats and longs
+    if it==nit;
+        break
+    end
     
-    % preallocate memory
+    it=it+1;
+    disp(['Iteration nr.',int2str(it)]); % print number of iteration
+
+    %% choice between minimizing slope errors or density gradient errors
+
+    switch choice
+        case 's'
+            xx = sx;
+            yy = sy;
+        case 'epsilon'
+            xx = ex;
+            yy = ey;
+    end
     
+    if it>0;
+        [xx] = cut_off(xx,pns,cut_off_choice);
+        [yy] = cut_off(yy,pns,cut_off_choice);
+    end
+    
+    xx_squeeze = squeeze(xx);
+    yy_squeeze = squeeze(yy);
+
+    %% disregard data above mixed layer depth
+
+    [pns] = cut_off(pns,pns,cut_off_choice);
+    [n2_ns] = cut_off(n2_ns,pns,cut_off_choice);
+    pns = squeeze(pns);
+    n2_ns = squeeze(n2_ns);
+
+
     depth_change = nan(yi,xi);
     depth_change_e = nan(yi,xi);
     
     % flag wet points
     
-    wet=~isnan(n2_ns_squeeze);
+    wet=~isnan(n2_ns);
     
     % find independent regions -> a least-squares problem is solved for
     % each of these regions
@@ -283,15 +291,10 @@ for it = 1:nit
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     dummy_depth_change_e(1,:,:) = (-1).*depth_change_e;
-    if (it > 1)
-        pns_l = pns_i;
-        sns_l = sns_i;
-        ctns_l = ctns_i;
-    else
-        pns_l = pns;
-        sns_l = sns;
-        ctns_l = ctns;
-    end
+
+    pns_l = pns;
+    sns_l = sns;
+    ctns_l = ctns;
     
     r=1.0;
     delta = 1e-6;
@@ -370,54 +373,21 @@ for it = 1:nit
 
     end
       
-    pns_i=pns_tmp;
-    ctns_i=ctns_tmp;
-    sns_i=sns_tmp;
-      
-
-    % calculate slope errors and buoyancy frequency on new
-    % approximate neutral surface
-    
-    n2_ns_i = var_on_surf(pns_i,p_mid,n2);
-    
-    [ss_i,sx_i,sy_i,curl_s_i,ee_i,ex_i,ey_i,curl_e_i] = ...
-        slope_error(p,g,n2,sns_i,ctns_i,pns_i,e1t,e2t,'bp',wrap); %#ok
-    
-    
-    % calculate epsilon^2 to estimate quality of approximate neutral
-    % surface
-    
-    switch choice
-        case 'epsilon'
-            square = ex_i .* ex_i + ey_i .* ey_i;
-            slope_square(it,1) = nansum(square(:));
-            no_pts = length(find(~isnan(square(:))));
-            eps_ss(it,1) = sqrt(slope_square(it,1)/no_pts);
-            
-        case 's'
-            square = sx_i .* sx_i + sy_i .* sy_i;
-            slope_square(it,1) = nansum(square(:));
-    end
+    pns=pns_tmp;
+    ctns=ctns_tmp;
+    sns=sns_tmp;
    
-    % keyboard
-     
-    sns_i_hist(it,:,:) = squeeze(sns_i);
-    ctns_i_hist(it,:,:) = squeeze(ctns_i);
-    pns_i_hist(it,:,:) = squeeze(pns_i(1,:,:));
-    depth_change_e_i_hist(it,:,:) = squeeze(depth_change_e);
-    jnk1 = (depth_change_e(:));
-    ppm(it,1) = mean(jnk1(find(~isnan(jnk1)))) - 2*std(jnk1(find(~isnan(jnk1))));
-    ppm(it,2) = mean(jnk1(find(~isnan(jnk1)))) + 2*std(jnk1(find(~isnan(jnk1))));
-    ppm(it,3) = std(abs(jnk1(find(~isnan(jnk1)))));
-    ppm(it,4) = nansum(abs(jnk1(find(~isnan(jnk1)))))/length(find(~isnan(jnk1)));
-    phi_prime_rms = ppm(it,2) - ppm(it,1);
                         
 end
 
-    ithist.sns_i = sns_i_hist;
-    ithist.ctns_i = ctns_i_hist;
-    ithist.pns_i = pns_i_hist;
-    ithist.depth_change_e_i = depth_change_e_i_hist;
+    sns_i=sns;
+    ctns_i=ctns;
+    pns_i=pns;
+    
+    ithist.sns_i = sns_hist;
+    ithist.ctns_i = ctns_hist;
+    ithist.pns_i = pns_hist;
+    ithist.depth_change_e = depth_change_e_hist;
     ithist.eps_ss = eps_ss;
 
 end
