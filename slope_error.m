@@ -76,12 +76,12 @@ switch keyword
 
         [gradx_ct,grady_ct] = grad_surf(ctns,e1t,e2t,'op',wrap);
         [gradx_s,grady_s] = grad_surf(sns,e1t,e2t,'op',wrap);
-        alpha=nan*ones(size(sns));
-        beta=nan*ones(size(sns));
-        for kk=1:size(sns,1)
-            alpha(kk,:,:) = gsw_alpha(squeeze(sns(kk,:,:)),squeeze(ctns(kk,:,:)),squeeze(pns(kk,:,:)));
-            beta(kk,:,:) = gsw_beta(squeeze(sns(kk,:,:)),squeeze(ctns(kk,:,:)),squeeze(pns(kk,:,:)));
-        end
+        
+        if size(sns,1)>1; % TODO gsw_rho_alpha_beta can't handle input of size (1,yi,xi)
+            [dummy,alpha,beta]=gsw_rho_alpha_beta(sns,ctns,pns);
+        else
+            [dummy,alpha(1,:,:),beta(1,:,:)]=gsw_rho_alpha_beta(squeeze(sns),squeeze(ctns),squeeze(pns));
+        end  
 
         % calculate density gradient errors (epsilon)
 
@@ -93,7 +93,7 @@ switch keyword
 
         p_mid = (p(2:zi,:,:) + p(1:zi-1,:,:)) ./ 2;
         n2_ns = var_on_surf(pns,p_mid,n2);
-        n2_ns = change_ak(n2_ns,'==',0,nan);
+        n2_ns(n2_ns==0)=nan;
         fac = g ./ n2_ns;
 
         sx = fac .* ex;
@@ -108,21 +108,21 @@ switch keyword
 
         [gradx_ct,grady_ct] = grad_surf(ctns,e1t,e2t,'bp',wrap);
         [gradx_s,grady_s] = grad_surf(sns,e1t,e2t,'bp',wrap);
-        alpha_tmp=nan*ones(size(sns));
-        beta_tmp=nan*ones(size(sns));
-        for kk=1:size(sns,1)
-            alpha_tmp(kk,:,:) = gsw_alpha(squeeze(sns(kk,:,:)),squeeze(ctns(kk,:,:)),squeeze(pns(kk,:,:)));
-            beta_tmp(kk,:,:) = gsw_beta(squeeze(sns(kk,:,:)),squeeze(ctns(kk,:,:)),squeeze(pns(kk,:,:)));
-        end
+        
+        if size(sns,1)>1; % TODO gsw_rho_alpha_beta can't handle input of size (1,yi,xi) 
+            [dummy,alpha,beta]=gsw_rho_alpha_beta(sns,ctns,pns);
+        else
+            [dummy,alpha(1,:,:),beta(1,:,:)]=gsw_rho_alpha_beta(squeeze(sns),squeeze(ctns),squeeze(pns));
+        end  
 
-        alpha_x(1:gi,1:yi,1:xi-1) = 0.5 * (alpha_tmp(1:gi,1:yi,1:xi-1) + alpha_tmp(1:gi,1:yi,2:xi));
-        alpha_y(1:gi,1:yi-1,1:xi) = 0.5 * (alpha_tmp(1:gi,1:yi-1,1:xi) + alpha_tmp(1:gi,2:yi,1:xi));
-        beta_x(1:gi,1:yi,1:xi-1) = 0.5 * (beta_tmp(1:gi,1:yi,1:xi-1) + beta_tmp(1:gi,1:yi,2:xi));
-        beta_y(1:gi,1:yi-1,1:xi) = 0.5 * (beta_tmp(1:gi,1:yi-1,1:xi) + beta_tmp(1:gi,2:yi,1:xi));
+        alpha_x(1:gi,1:yi,1:xi-1) = 0.5 * (alpha(1:gi,1:yi,1:xi-1) + alpha(1:gi,1:yi,2:xi));
+        alpha_y(1:gi,1:yi-1,1:xi) = 0.5 * (alpha(1:gi,1:yi-1,1:xi) + alpha(1:gi,2:yi,1:xi));
+        beta_x(1:gi,1:yi,1:xi-1) = 0.5 * (beta(1:gi,1:yi,1:xi-1) + beta(1:gi,1:yi,2:xi));
+        beta_y(1:gi,1:yi-1,1:xi) = 0.5 * (beta(1:gi,1:yi-1,1:xi) + beta(1:gi,2:yi,1:xi));
 
         p_mid = (p(2:zi,:,:) + p(1:zi-1,:,:)) ./ 2;
         n2_ns = var_on_surf(pns,p_mid,n2);
-        n2_ns = change_ak(n2_ns,'==',0,nan);
+        n2_ns(n2_ns==0)=nan;
 
         fac_tmp = g ./ n2_ns;
 
@@ -142,8 +142,8 @@ switch keyword
 
             case 'long'
 
-                alpha_x(1:gi,1:yi,xi) = 0.5 * (alpha_tmp(1:gi,1:yi,xi) + alpha_tmp(1:gi,1:yi,1));
-                beta_x(1:gi,1:yi,xi) = 0.5 * (beta_tmp(1:gi,1:yi,xi) + beta_tmp(1:gi,1:yi,1));
+                alpha_x(1:gi,1:yi,xi) = 0.5 * (alpha(1:gi,1:yi,xi) + alpha(1:gi,1:yi,1));
+                beta_x(1:gi,1:yi,xi) = 0.5 * (beta(1:gi,1:yi,xi) + beta(1:gi,1:yi,1));
                 fac_x(1:gi,1:yi,xi) = 0.5 * (fac_tmp(1:gi,1:yi,xi) + fac_tmp(1:gi,1:yi,1));
                 alpha_y(1:gi,yi,1:xi) = nan;
                 beta_y(1:gi,yi,1:xi) = nan;

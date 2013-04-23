@@ -63,4 +63,4 @@ dyn_h = var_on_surf(pref_pa*ones(size(steric_int)),p_mid_pa,steric_int);
 
 %% replace zeros with NaNs
 
-dyn_h = change_ak(dyn_h,'==',0,nan);
+dyn_h(dyn_h==0)=nan;

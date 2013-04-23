@@ -36,7 +36,7 @@ function [sns_i,ctns_i,pns_i,ithist] = optimize_surface_exact(s,ct,p,g,n2,sns,ct
 %           ctns_i      conservative temperature on optimized surface
 %           pns_i       pressure on optimized surface
 %
-% Calls:    cut_off.m, mld.m, slope_error.m, var_on_surf.m
+% Calls:    mld.m, slope_error.m, var_on_surf.m
 %
 % Units:    salinity                    psu (IPSS-78)
 %           conservative temperature    degrees C (IPS-90)
@@ -76,7 +76,7 @@ ctns_hist = nan(nit+1,yi,xi);
 pns_hist = nan(nit+1,yi,xi);
 eps_ss=nan(nit+1,1);
 
-depth_change_e_hist = nan(nit,yi,xi);
+phiprime_e_hist = nan(nit,yi,xi);
 
 cut_off_choice(1,1:yi,1:xi) = mld(s,ct,p);
 
@@ -113,7 +113,7 @@ while it<=nit;
     pns_hist(it+1,:,:) = squeeze(pns(1,:,:));
     
     if it>0;
-        depth_change_e_hist(it,:,:) = squeeze(depth_change_e);
+        phiprime_e_hist(it,:,:) = squeeze(phiprime_e);
     end
     
     if it==nit;
@@ -135,23 +135,24 @@ while it<=nit;
     end
     
     if it>0;
-        [xx] = cut_off(xx,pns,cut_off_choice);
-        [yy] = cut_off(yy,pns,cut_off_choice);
+        xx(pns<= cut_off_choice)=nan;
+        yy(pns<= cut_off_choice)=nan;
     end
     
     xx_squeeze = squeeze(xx);
     yy_squeeze = squeeze(yy);
 
     %% disregard data above mixed layer depth
-
-    [pns] = cut_off(pns,pns,cut_off_choice);
-    [n2_ns] = cut_off(n2_ns,pns,cut_off_choice);
+    
+    n2_ns(pns<=cut_off_choice)=nan;
+    pns(pns<=cut_off_choice)=nan;
+    
     pns = squeeze(pns);
     n2_ns = squeeze(n2_ns);
 
 
-    depth_change = nan(yi,xi);
-    depth_change_e = nan(yi,xi);
+    phiprime = nan(yi,xi);
+    phiprime_e = nan(yi,xi);
     
     % flag wet points
     
@@ -214,8 +215,7 @@ while it<=nit;
         reg=false(1,xi*yi)'; 
         reg(region)=true;
         
-        % for forward finite differences only keep equations for points 
-        % wich are in the region and have an eastward neighbour in the region 
+        % centered finite differences on a staggered grid
         en= reg & circshift(reg,-yi);
         if strcmp(wrap,'none')  % remove equations for eastern boundary for zonally-nonperiodic domain
             bdy_east=false(1,xi*yi); bdy_east(yi*(xi-1)+1:end)=true;
@@ -225,14 +225,14 @@ while it<=nit;
         % j1 are j-indices for matrix coefficient 1
         sreg=cumsum(reg); % sparse indices of region (points of non-region are indexed with dummy)
         sreg_en=circshift(sreg,-yi); % sparse indices of eastward neighbours
-        j1_ew=sreg_en(en); % keep only those with eastward neighbour in the region
+        j1_ew=sreg_en(en); 
        
         j2_ew=sreg(en); % j2 are j-indices for matrix coefficient -1
         
 
         %% set up north-south equations for weighted inversion
         
-        nn= reg & circshift(reg,-1); % true if northward neighbour is in the region
+        nn= reg & circshift(reg,-1);
         % remove equations for northern boundary
         bdy_north=false(1,xi*yi); bdy_north(yi:yi:yi*xi)=true;
         nn=nn & ~bdy_north(:);
@@ -245,7 +245,7 @@ while it<=nit;
         j2=[j2_ew',j2_ns'];
         
         
-        %% make the average of all density changes zero 
+        %% make the average of Phi' zero 
         % this should keep the surface from drifting away from the initial condition
         % we might change that to a different condition
         
@@ -278,29 +278,23 @@ while it<=nit;
         
         switch choice
             case 's'
-                depth_change(region) = - x;
+                phiprime(region) = - x;
             case 'epsilon'
-                depth_change_e(region) = x;
+                phiprime_e(region) = x;
         end
-        
-        eval(['region_',int2str(nregion),' = region;']);
         
     end
 
       
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    dummy_depth_change_e(1,:,:) = (-1).*depth_change_e;
-
-    pns_l = pns;
-    sns_l = sns;
-    ctns_l = ctns;
+    dummy_phiprime_e(1,:,:) = (-1).*phiprime_e;
     
     r=1.0;
     delta = 1e-6;
 
-    t2=gsw_rho(sns_l(:),ctns_l(:),pns_l(:));
-    t2=t2.*(1+r*dummy_depth_change_e(:)); % rho_s+rho'
+    t2=gsw_rho(sns(:),ctns(:),pns(:));
+    t2=t2.*(1+r*dummy_phiprime_e(:)); % rho_s+rho'
     
     inds=1:yi*xi;
     fr=true(1,yi*xi);
@@ -310,7 +304,7 @@ while it<=nit;
     pns_tmp = nan(1,yi,xi);
     sns_tmp = nan(1,yi,xi);
     ctns_tmp = nan(1,yi,xi);
-    pns_l=pns_l(:);
+    pns=pns(:);
 
     refine_ints=100;
     
@@ -326,11 +320,11 @@ while it<=nit;
         end
         if cnt==1 | cnt==2
             ii=bsxfun(@times,1:yi*xi,ones(stack,1)); 
-            pns_l_3d=pns_l(ii);
+            pns_3d=pns(ii);
             t2_3d_full=t2(ii);
         end
         
-        t1=gsw_rho(s_tmp(:,:),ct_tmp(:,:),pns_l_3d(:,inds));
+        t1=gsw_rho(s_tmp(:,:),ct_tmp(:,:),pns_3d(:,inds));
         t2_3d=t2_3d_full(:,inds);
         tni=t1-t2_3d; % rho-(rho_s+rho')
         
@@ -384,10 +378,10 @@ end
     ctns_i=ctns;
     pns_i=pns;
     
-    ithist.sns_i = sns_hist;
-    ithist.ctns_i = ctns_hist;
-    ithist.pns_i = pns_hist;
-    ithist.depth_change_e = depth_change_e_hist;
+    ithist.sns = sns_hist;
+    ithist.ctns = ctns_hist;
+    ithist.pns = pns_hist;
+    ithist.phiprime_e = phiprime_e_hist;
     ithist.eps_ss = eps_ss;
 
 end

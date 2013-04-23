@@ -7,8 +7,6 @@
 %   analyze_surface_license - License statement and permissions for 
 %                             analyze_surface package.
 %   bernoulli_streamfunc    - Calculate the Bernoulli streamfunction 
-%   change_ak                  - Change values in matrix
-%   cut_off                 - Cut off data on a surface above a certain depth. 
 %   delta_streamfunc        - Calculate local difference in streamfunctions
 %   dia_trans               - Calculate dia-surface transport and integrate 
 %                             over the domain
