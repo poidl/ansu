@@ -1,4 +1,4 @@
-function [sns_i,ctns_i,pns_i,ithist] = optimize_surface_exact(s,ct,p,g,n2,sns,ctns,pns,e1t,e2t,settings)
+function [sns_i,ctns_i,pns_i] = optimize_surface_exact(s,ct,p,g,n2,sns,ctns,pns,e1t,e2t)
 
 %           Optimize density surfaces to minimise the fictitious diapycnal diffusivity
 %
@@ -54,13 +54,7 @@ function [sns_i,ctns_i,pns_i,ithist] = optimize_surface_exact(s,ct,p,g,n2,sns,ct
 %   type 'analyze_surface_version' for version details
 %
 
-wrap = settings.wrap;
-choice = settings.slope;
-solver = settings.solver;
-nit = settings.nit;
-
-
-
+settings;
 [zi,yi,xi] = size(s);
 
 %% calculate buoyancy frequency on density surface
@@ -69,14 +63,7 @@ p_mid = 0.5*(p(2:zi,:,:) + p(1:zi-1,:,:));
 
 
 %% prepare data
-slope_square = nan(nit+1,1);
 
-sns_hist = nan(nit+1,yi,xi); % store variables on initial surface and on nit improvements (=> nit+1)
-ctns_hist = nan(nit+1,yi,xi);
-pns_hist = nan(nit+1,yi,xi);
-eps_ss=nan(nit+1,1);
-
-phiprime_e_hist = nan(nit,yi,xi);
 
 cut_off_choice(1,1:yi,1:xi) = mld(s,ct,p);
 
@@ -94,27 +81,13 @@ while it<=nit;
     
     
     %% diagnose
-    switch choice
-        case 'epsilon'
-            square = ex .* ex + ey .* ey;
-            slope_square(it+1,1) = nansum(square(:));
-            no_pts = length(find(~isnan(square(:))));
-            eps_ss(it+1,1) = sqrt(slope_square(it+1,1)/no_pts);
-            
-        case 's'
-            square = sx .* sx + sy .* sy;
-            slope_square(it+1,1) = nansum(square(:));
+    if save_iterations;
+        if it==0; % dummy value for phiprime_e 
+            phiprime_e=nan; 
+        end
+        diagnose_and_write(it,sns,ctns,pns,ex,ey,phiprime_e);
     end
-   
-    % store history
-     
-    sns_hist(it+1,:,:) = squeeze(sns);
-    ctns_hist(it+1,:,:) = squeeze(ctns);
-    pns_hist(it+1,:,:) = squeeze(pns(1,:,:));
     
-    if it>0;
-        phiprime_e_hist(it,:,:) = squeeze(phiprime_e);
-    end
     
     if it==nit;
         break
@@ -377,13 +350,46 @@ end
     sns_i=sns;
     ctns_i=ctns;
     pns_i=pns;
-    
-    ithist.sns = sns_hist;
-    ithist.ctns = ctns_hist;
-    ithist.pns = pns_hist;
-    ithist.phiprime_e = phiprime_e_hist;
-    ithist.eps_ss = eps_ss;
 
+end
+
+
+
+
+function diagnose_and_write(it,sns,ctns,pns,ex,ey,phiprime_e)
+    settings; % read nit, choice, etc.
+    
+    if it==0 % initialize
+        [gi,yi,xi]=size(sns);
+        slope_square = nan(nit+1,1);
+
+        sns_hist = nan(nit+1,yi,xi); % store variables on initial surface and on nit improvements (=> nit+1)
+        ctns_hist = nan(nit+1,yi,xi);
+        pns_hist = nan(nit+1,yi,xi);
+        eps_rms_hist=nan(nit+1,1);
+        phiprime_e_hist = nan(nit,yi,xi);
+
+        
+        vars = {'sns_hist','ctns_hist','pns_hist','eps_rms_hist','phiprime_e_hist'};
+        save('data/iteration_history.mat', vars{:},'-v7.3');
+    end
+    
+    iteration_history = matfile('data/iteration_history.mat','Writable',true);
+    iteration_history.sns_hist(it+1,:,:) = sns;
+    iteration_history.ctns_hist(it+1,:,:) = ctns;
+    iteration_history.pns_hist(it+1,:,:) = pns;   
+
+    if it>0
+        iteration_history.phiprime_e_hist(it,:,:) = permute(phiprime_e,[3,1,2]);
+    end
+    
+    if strcmp(choice, 'epsilon')
+        square = ex .* ex + ey .* ey;
+        slope_square(it+1,1) = nansum(square(:));
+        no_pts = length(find(~isnan(square(:))));
+        iteration_history.eps_rms_hist(it+1,1) = sqrt(slope_square(it+1,1)/no_pts);
+    end
+    
 end
 
 
