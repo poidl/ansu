@@ -134,53 +134,11 @@ while it<=nit;
     % find independent regions -> a least-squares problem is solved for
     % each of these regions
     
-    cc=bwconncomp(wet,4);
+    regions=find_regions(wet);
     
-    if strcmp(wrap,'long') % in a zonally periodic domain merge regions which are cut apart by grid boundary
-
-        % find regions which have points at western and eastern boundary
-        bdy_wet=false(1,length(cc.PixelIdxList));
-        ireg=1:length(cc.PixelIdxList);
-        for ii=ireg
-            if any(cc.PixelIdxList{ii}<=yi | cc.PixelIdxList{ii}>yi*(xi-1))
-                bdy_wet(ii)=true;
-            end
-        end
-        iw=ireg(bdy_wet);
-        
-        merged=false(1,length(cc.PixelIdxList));
-
-        ii=1;
-        while ii<=length(iw)
-            for jj=1: length(iw)
-                if ii~=jj && ~(merged(iw(ii)) || merged(iw(jj)))
-                    pts1=cc.PixelIdxList{iw(ii)};
-                    pts2=cc.PixelIdxList{iw(jj)};
-                    % check if western border of region iw(ii) intersects
-                    % with eastern border of region iw(jj), or vice versa
-                    cond1=~isempty( intersect( pts1(pts1<=yi)+yi*(xi-1),pts2(pts2>yi*(xi-1)) ) );
-                    cond2=~isempty( intersect( pts2(pts2<=yi)+yi*(xi-1),pts1(pts1>yi*(xi-1)) ) );
-                    if cond1 | cond2
-                        cc.PixelIdxList{iw(ii)}=union( pts1, pts2 );
-                        merged(iw(jj))=true; % iw(jj) has been merged into iw(ii); delete later
-                        ii=ii-1; 
-                        break
-                    end
-                end
-            end
-            ii=ii+1;
-        end
-        % delete merged regions
-        remove=ireg(merged);
-        for ii= remove(end:-1:1)
-            cc.PixelIdxList(ii)=[];
-        end
-    end
-  
-    
-    for nregion=1:length(cc.PixelIdxList)
+    for nregion=1:length(regions)
        
-        region=cc.PixelIdxList{nregion};
+        region=regions{nregion};
         
 
         %% set up east-west equations for weighted inversion
@@ -354,6 +312,56 @@ end
 end
 
 
+function regions=find_regions(wet)
+    settings;
+    
+    [yi,xi]=size(wet);
+    
+    cc=bwconncomp(wet,4);
+
+    if strcmp(wrap,'long') % in a zonally periodic domain merge regions which are cut apart by grid boundary
+
+        % find regions which have points at western and eastern boundary
+        bdy_wet=false(1,length(cc.PixelIdxList));
+        ireg=1:length(cc.PixelIdxList);
+        for ii=ireg
+            if any(cc.PixelIdxList{ii}<=yi | cc.PixelIdxList{ii}>yi*(xi-1))
+                bdy_wet(ii)=true;
+            end
+        end
+        iw=ireg(bdy_wet);
+
+        merged=false(1,length(cc.PixelIdxList));
+
+        ii=1;
+        while ii<=length(iw)
+            for jj=1: length(iw)
+                if ii~=jj && ~(merged(iw(ii)) || merged(iw(jj)))
+                    pts1=cc.PixelIdxList{iw(ii)};
+                    pts2=cc.PixelIdxList{iw(jj)};
+                    % check if western border of region iw(ii) intersects
+                    % with eastern border of region iw(jj), or vice versa
+                    cond1=~isempty( intersect( pts1(pts1<=yi)+yi*(xi-1),pts2(pts2>yi*(xi-1)) ) );
+                    cond2=~isempty( intersect( pts2(pts2<=yi)+yi*(xi-1),pts1(pts1>yi*(xi-1)) ) );
+                    if cond1 | cond2
+                        cc.PixelIdxList{iw(ii)}=union( pts1, pts2 );
+                        merged(iw(jj))=true; % iw(jj) has been merged into iw(ii); delete later
+                        ii=ii-1; 
+                        break
+                    end
+                end
+            end
+            ii=ii+1;
+        end
+        % delete merged regions
+        remove=ireg(merged);
+        for ii= remove(end:-1:1)
+            cc.PixelIdxList(ii)=[];
+        end
+    end
+    
+    regions=cc.PixelIdxList;
+end
 
 
 function diagnose_and_write(it,sns,ctns,pns,ex,ey,phiprime_e)
