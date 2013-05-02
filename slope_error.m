@@ -1,8 +1,8 @@
-function [ss,sx,sy,curl_s,ee,ex,ey,curl_e,fdd] = slope_error(p,g,n2,sns,ctns,pns,e1t,e2t,keyword,wrap)
+function [ss,sx,sy,curl_s,ee,ex,ey,curl_e,fdd] = slope_error(p,g,n2,sns,ctns,pns,e1t,e2t,keyword)
 
 %           Calculate slope errors
 %
-% Usage:    [ss,sx,sy,curl_s,ee,ex,ey,curl_e,ver] = slope_error(p,g,n2,sns,ctns,pns,e1t,e2t,keyword,wrap)
+% Usage:    [ss,sx,sy,curl_s,ee,ex,ey,curl_e,ver] = slope_error(p,g,n2,sns,ctns,pns,e1t,e2t,keyword)
 %
 %           Calculate slope errors, density gradient errors, their curl and
 %           the fictitious diapycnal diffusivity
@@ -18,8 +18,6 @@ function [ss,sx,sy,curl_s,ee,ex,ey,curl_e,fdd] = slope_error(p,g,n2,sns,ctns,pns
 %           lats        latitude
 %           keyword     'op' for values on points
 %                       'bp' for values in between points
-%           wrap        'none'
-%                       'long'
 %
 % Output:   ss         slope error
 %           sx         x-component of slope error
@@ -49,10 +47,12 @@ function [ss,sx,sy,curl_s,ee,ex,ey,curl_e,fdd] = slope_error(p,g,n2,sns,ctns,pns
 %   type 'analyze_surface_version' for version details
 %
 
+user_input;
+
 %% check input arguments
 
-if ~(nargin == 10)
-    error('slope_error.m: requires 10 input arguments')
+if ~(nargin == 9)
+    error('slope_error.m: requires 9 input arguments')
 end
 
 %% initialize
@@ -63,90 +63,50 @@ end
 %% make g correct size
 
 if (length(size(g)) == 2)
-    g_nan = nan(size(sns));
-    g_nan(1,:,:) = g;
-    g = g_nan;
+    g=permute(g,[3 1 2]);
 end
 
 %% calculate slope errors and epsilon
 
-switch keyword
+if strcmp(keyword,'op')
 
-    case 'op'
+    error('not implemented')
+    
+elseif strcmp(keyword,'bp')
 
-        [gradx_ct,grady_ct] = grad_surf(ctns,e1t,e2t,'op',wrap);
-        [gradx_s,grady_s] = grad_surf(sns,e1t,e2t,'op',wrap);
+        % ss, curl_s, ee, curl_e and fictitious diapycnal diffusivity are not calculated due to sx, sy, ex, ey being defined on different grids;
 
-        [zz,yy,xx]=size(sns);
-        [dummy,alpha,beta]=gsw_rho_alpha_beta(sns(:,:),ctns(:,:),pns(:,:));
-        alpha=reshape(alpha,[zz,yy,xx]);
-        beta=reshape(beta,[zz,yy,xx]);
-        
-        % calculate density gradient errors (epsilon)
-
-        ex = ((beta .* gradx_s) - (alpha .* gradx_ct));
-        ey = ((beta .* grady_s) - (alpha .* grady_ct));
-        ee = ex + ey; 
-
-        % calculate slope errors
-
-        p_mid = (p(2:zi,:,:) + p(1:zi-1,:,:)) ./ 2;
-        n2_ns = var_on_surf(pns,p_mid,n2);
-        n2_ns(n2_ns==0)=nan;
-        fac = g ./ n2_ns;
-
-        sx = fac .* ex;
-        sy = fac .* ey;
-        ss = sx + sy; 
-
-        fdd = 1000 * (ss .* ss);
-
-    case 'bp'
-
-        %disp('ss, curl_s, ee, curl_e and fictitious diapycnal diffusivity are not calculated due to sx, sy, ex, ey being at different locations');
-
-        [gradx_ct,grady_ct] = grad_surf(ctns,e1t,e2t,'bp',wrap);
-        [gradx_s,grady_s] = grad_surf(sns,e1t,e2t,'bp',wrap);
+        [gradx_ct,grady_ct] = grad_surf(ctns,e1t,e2t,'bp');
+        [gradx_s,grady_s] = grad_surf(sns,e1t,e2t,'bp');
         
         [zz,yy,xx]=size(sns);
         [dummy,alpha,beta]=gsw_rho_alpha_beta(sns(:,:),ctns(:,:),pns(:,:));
         alpha=reshape(alpha,[zz,yy,xx]);
         beta=reshape(beta,[zz,yy,xx]);
 
-        alpha_x(1:gi,1:yi,1:xi-1) = 0.5 * (alpha(1:gi,1:yi,1:xi-1) + alpha(1:gi,1:yi,2:xi));
-        alpha_y(1:gi,1:yi-1,1:xi) = 0.5 * (alpha(1:gi,1:yi-1,1:xi) + alpha(1:gi,2:yi,1:xi));
-        beta_x(1:gi,1:yi,1:xi-1) = 0.5 * (beta(1:gi,1:yi,1:xi-1) + beta(1:gi,1:yi,2:xi));
-        beta_y(1:gi,1:yi-1,1:xi) = 0.5 * (beta(1:gi,1:yi-1,1:xi) + beta(1:gi,2:yi,1:xi));
-
+        alpha_x = 0.5*( alpha + circshift(alpha,[0 0 -1]) );
+        alpha_y = 0.5*( alpha + circshift(alpha,[0 -1 0]) );
+        beta_x = 0.5 * ( beta + circshift(beta,[0 0 -1]) );
+        beta_y = 0.5 * ( beta + circshift(beta,[0 -1 0]) );
+       
         p_mid = (p(2:zi,:,:) + p(1:zi-1,:,:)) ./ 2;
         n2_ns = var_on_surf(pns,p_mid,n2);
         n2_ns(n2_ns==0)=nan;
-
         fac_tmp = g ./ n2_ns;
 
-        fac_x(1:gi,1:yi,1:xi-1) = 0.5 * (fac_tmp(1:gi,1:yi,1:xi-1) + fac_tmp(1:gi,1:yi,2:xi));
-        fac_y(1:gi,1:yi-1,1:xi) = 0.5 * (fac_tmp(1:gi,1:yi-1,1:xi) + fac_tmp(1:gi,2:yi,1:xi));
+        fac_x = 0.5 * ( fac_tmp + circshift(fac_tmp,[0 0 -1]) );
+        fac_y = 0.5 * ( fac_tmp + circshift(fac_tmp,[0 -1 0]) );
+        
+        alpha_y(:,yi,:) = nan;
+        beta_y(:,yi,:) = nan;
+        fac_y(:,yi,:) = nan;
 
-        switch wrap
+        if ~zonally_periodic;
 
-            case 'none'
-
-                alpha_x(1:gi,1:yi,xi) = nan;
-                beta_x(1:gi,1:yi,xi) = nan;
-                fac_x(1:gi,1:yi,xi) = nan;
-                alpha_y(1:gi,yi,1:xi) = nan;
-                beta_y(1:gi,yi,1:xi) = nan;
-                fac_y(1:gi,yi,1:xi) = nan;
-
-            case 'long'
-
-                alpha_x(1:gi,1:yi,xi) = 0.5 * (alpha(1:gi,1:yi,xi) + alpha(1:gi,1:yi,1));
-                beta_x(1:gi,1:yi,xi) = 0.5 * (beta(1:gi,1:yi,xi) + beta(1:gi,1:yi,1));
-                fac_x(1:gi,1:yi,xi) = 0.5 * (fac_tmp(1:gi,1:yi,xi) + fac_tmp(1:gi,1:yi,1));
-                alpha_y(1:gi,yi,1:xi) = nan;
-                beta_y(1:gi,yi,1:xi) = nan;
-                fac_y(1:gi,yi,1:xi) = nan;
-
+            alpha_x(:,:,xi) = nan;
+            beta_x(:,:,xi) = nan;
+            fac_x(:,:,xi) = nan;
+            
         end
 
         % calculate density gradient errors (epsilon)
@@ -163,28 +123,17 @@ switch keyword
 
         fdd = nan;
 
-    otherwise
+else
         error('slope_error.m: keyword must be "op" or "bp"')
 end
 
 %% calculate curl of slope errors and epsilon
 
-switch keyword
+if strcmp(keyword,'op')
 
-    case 'op'
+        error('not implemented')
 
-        % calculate curl of epsilon and curl of slope errors
-
-        [dummy,ex_diff] = grad_surf(ex,e1t,e2t,'op',wrap); %#ok
-        [ey_diff,dummy] = grad_surf(ey,e1t,e2t,'op',wrap); %#ok
-
-        [dummy,sx_diff] = grad_surf(sx,e1t,e2t,'op',wrap); %#ok
-        [sy_diff,dummy] = grad_surf(sy,e1t,e2t,'op',wrap); %#ok
-
-        curl_e = ey_diff-ex_diff;
-        curl_s = sy_diff-ex_diff;
-
-    otherwise
+else
 
         curl_e = [];
         curl_s = [];

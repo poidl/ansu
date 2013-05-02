@@ -1,4 +1,4 @@
-function [e2t,e1t] = scale_fac(lats,longs,wrap)
+function [e2t,e1t] = scale_fac(lats,longs)
 
 %           Find distances between gridpoints of given latitude/longitude 
 %
@@ -9,8 +9,6 @@ function [e2t,e1t] = scale_fac(lats,longs,wrap)
 %
 % Input:    lats        latitude
 %           longs       longitude
-% %           wrap        'none'
-% %                       'long'
 %
 % Output:   e2t         distance between gridpoints in N-S direction             
 %           e1t         distance between gridpoints in E-W direction 
@@ -29,10 +27,12 @@ function [e2t,e1t] = scale_fac(lats,longs,wrap)
 %   type 'analyze_surface_version' for version details
 %
 
+user_input;
+
 %% check input arguments
 
-if ~(nargin == 3)
-    error('scale_fac.m: requires 3 input arguments')
+if ~(nargin == 2)
+    error('scale_fac.m: requires 2 input arguments')
 end
 
 %% initialize and preallocate memory
@@ -43,8 +43,7 @@ e2t = nan(yi,xi);
 
 %% calculate distances
 
-switch wrap
-    case 'none'
+if ~zonally_periodic;
         for j = 1:yi
             for i = 1:xi-1
                 e1t(j,i) = gsw_distance([longs(j,i) longs(j,i+1)],[lats(j,i) lats(j,i)]);
@@ -55,7 +54,7 @@ switch wrap
                 e2t(j,i) = gsw_distance([longs(j,i) longs(j,i)],[lats(j,i) lats(j+1,i)]);
             end
         end
-    case 'long'
+else
         for j = 1:yi
             for i = 1:xi-1
                 e1t(j,i) = gsw_distance([longs(j,i) longs(j,i+1)],[lats(j,i) lats(j,i)]);
