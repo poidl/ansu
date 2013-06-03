@@ -133,7 +133,8 @@ for iregion=1:length(regions)
     
     en= reg & circshift(reg,-yi); %  find points between which phi_x can be computed. en is true at a point if its eastward neighbor is in the region
     if ~zonally_periodic;  % remove equations for eastern boundary for zonally-nonperiodic domain
-        en(:,end)=false;
+        not_bdy_east=true(yi,xi); not_bdy_east(:,end)=false;
+        en=en & not_bdy_east(:);
     end
     sreg=cumsum(reg); % sparse indices of points forming the region (points of non-region are indexed with dummy)
     sreg_en=circshift(sreg,-yi); % sparse indices of eastward neighbours
@@ -143,7 +144,8 @@ for iregion=1:length(regions)
     
     % set up north-south equations for weighted inversion
     nn= reg & circshift(reg,-1);
-    nn(end,:)=false; % remove equations for northern boundary
+    not_bdy_north=true(yi,xi); not_bdy_north(end,:)=false; % remove equations for northern boundary
+    nn=nn & not_bdy_north(:);
     sreg_nn=circshift(sreg,-1);
     
     j1_ns=sreg_nn(nn);
