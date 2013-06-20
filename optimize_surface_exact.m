@@ -167,8 +167,6 @@ for iregion=1:length(regions)
     b=sparse( [xx(en).*e1t(en); yy(nn).*e2t(nn); 0 ]);
     
     disp(['solving for region ',int2str(iregion)]);
-    %stef: 'exact' gets to the solution quicker but requires more
-    %memory
     switch solver
         case 'iterative'
             [x,dummyflag] = lsqr(A,b,1e-7,50000);
@@ -354,9 +352,11 @@ if it>0
 end
 
 if strcmp(choice, 'epsilon')
-    square = ex .* ex + ey .* ey; % ex and ey are defined on different grids, but this may not be relevant for calculating the root-mean-square (?)
-    slope_square(it+1,1) = nansum(square(:));
-    no_pts = sum(~isnan(square(:)));
+    s1=ex(~isnan(ex));  
+    s2=ey(~isnan(ey));
+    square=[s1(:) ; s2(:)].^2;
+    slope_square(it+1,1) = sum(square);
+    no_pts =length(square);
     iteration_history.eps_rms_hist(it+1,1) = sqrt(slope_square(it+1,1)/no_pts);
 end
 
