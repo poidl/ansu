@@ -75,33 +75,21 @@ while it<=nit;
     it=it+1; % start the next iteration
     disp(['Iteration nr.',int2str(it)]);
     
-    % choice between minimizing slope errors or density gradient errors
-    switch choice
-        case 's'
-            xx = sx;
-            yy = sy;
-        case 'epsilon'
-            xx = ex;
-            yy = ey;
-    end
-    
-    % calculate buoyancy frequency on density surface
-    n2_ns = var_on_surf(pns,p_mid,n2);
+    xx=ex; % code in current form uses density gradient errors (as opposed to slope errors) 
+    yy=ey;
     
     % disregard data above mixed layer depth
     xx(pns<= cut_off_choice)=nan;
     yy(pns<= cut_off_choice)=nan;
-    n2_ns(pns<=cut_off_choice)=nan;
     pns(pns<=cut_off_choice)=nan;
     
     xx = squeeze(xx);
     yy = squeeze(yy);
     pns = squeeze(pns);
-    n2_ns = squeeze(n2_ns);
-    
+   
     % find independent regions -> a least-squares problem is solved for
     % each of these regions
-    regions=find_regions(n2_ns);
+    regions=find_regions(pns);
     
     % solve for phiprime
     phiprime=solve_lsqr(regions, xx, yy, e1t, e2t);
@@ -133,8 +121,7 @@ for iregion=1:length(regions)
     
     en= reg & circshift(reg,-yi); %  find points between which phi_x can be computed. en is true at a point if its eastward neighbor is in the region
     if ~zonally_periodic;  % remove equations for eastern boundary for zonally-nonperiodic domain
-        not_bdy_east=true(yi,xi); not_bdy_east(:,end)=false;
-        en=en & not_bdy_east(:);
+        en((xi-1)*yi:xi*yi)=false;
     end
     sreg=cumsum(reg); % sparse indices of points forming the region (points of non-region are indexed with dummy)
     sreg_en=circshift(sreg,-yi); % sparse indices of eastward neighbours
@@ -144,8 +131,7 @@ for iregion=1:length(regions)
     
     % set up north-south equations for weighted inversion
     nn= reg & circshift(reg,-1);
-    not_bdy_north=true(yi,xi); not_bdy_north(end,:)=false; % remove equations for northern boundary
-    nn=nn & not_bdy_north(:);
+    nn(1:yi:(xi-1)*yi+1)=false; % remove equations for northern boundary
     sreg_nn=circshift(sreg,-1);
     
     j1_ns=sreg_nn(nn);
@@ -206,66 +192,118 @@ sns_out = nan(1,yi,xi);
 ctns_out = nan(1,yi,xi);
 pns=pns(:);
 
-refine_ints=100;
 
-cnt=0;
-while 1
-    cnt=cnt+1;
+stack=zi;
+ii=bsxfun(@times,1:yi*xi,ones(stack,1));
+pns_stacked=pns(ii); % stack pressure of current surface vertically
+t2_stacked_full=t2(ii); % stack locally referenced density of current surface vertically
+
+t1=gsw_rho(s(:,:),ct(:,:),pns_stacked(:,inds)); % 3-d density referenced to pressure of the current surface
+t2_3d=t2_stacked_full(:,inds); %
+tni=t1-t2_3d; % rho-(rho_s+rho'); find corrected surface by finding roots of this term
+
+Itni_p = tni>0;
+Itni_n = tni<0;
+
+zc = any(Itni_p,1) & any(Itni_n,1); % horizontal indices of locations where zero-crossing occurs
+[min_tni, lminr]=min(abs(tni));
+cond1=min_tni>delta;
+final=min_tni<=delta; % at these horizontal indices root has been found
+fr= zc & cond1; %  at these horizontal locations we have to use root finding
+
+lminr=lminr+stack*[0:size(Itni_n,2)-1];
+lminr=lminr(final);
+
+sns_out(inds(final))=s(lminr); % adjust surface where root has already been found
+ctns_out(inds(final)) =ct(lminr);
+pns_out(inds(final)) =p(lminr);
+
+k=sum(Itni_n,1); % find indices of flattened 3d-array where we use root finding
+k=k+stack*[0:size(Itni_n,2)-1];
+
+
+options=optimset('TolX',1e-3);
+for ii=inds(fr);
+    su=s(k(ii)); sl=s(k(ii)+1); % linear interpolation of s and ct
+    ctu=ct(k(ii)); ctl=ct(k(ii)+1);
+    pu=p(k(ii)); pl=p(k(ii)+1);
     
-    if cnt==1 % in first iteration pns_l is stacked vertically zi times, after that it is stacked refine_ints times
-        stack=zi;
-    elseif cnt==2
-        stack=refine_ints+1;
-    end
-    if cnt==1 | cnt==2
-        ii=bsxfun(@times,1:yi*xi,ones(stack,1));
-        pns_stacked=pns(ii); % stack pressure of current surface vertically
-        t2_stacked_full=t2(ii); % stack locally referenced density of current surface vertically
-    end
+    sp=@(p) su+(sl-su)*(p-pu)/(pl-pu);
+    ctp=@(p) ctu+(ctl-ctu)*(p-pu)/(pl-pu);
+    fac=1./sqrt(gsw_rho(su,ctu,pu)^2+gsw_rho(sl,ctl,pl)^2); % scale to avoid having to set tolerance ?
+    drho_normalized=@(p)  fac.*(gsw_rho(sp(p), ctp(p), pns(ii)) -t2(ii));
     
-    inds=inds(fr); % points where surface has not been corrected
-    t1=gsw_rho(s(:,:),ct(:,:),pns_stacked(:,inds)); % 3-d density referenced to pressure of the current surface
-    t2_3d=t2_stacked_full(:,inds); %
-    tni=t1-t2_3d; % rho-(rho_s+rho'); find corrected surface by finding roots of this term
+    %dmyrho_normalized=@(p,su,sl,ctu,ctl,pu,pl)  1.*(gsw_rho( su+(sl-su)*(p-pu)/(pl-pu), ctu+(ctl-ctu)*(p-pu)/(pl-pu), pns(ii))-t2(ii));
+    %drho_normalized=@(p) dmyrho_normalized(p,su,sl,ctu,ctl,pu,pl);
+    proot=fzero(drho_normalized, [pu,pl],options);
     
-    Itni_p = tni>0;
-    Itni_n = tni<0;
-    
-    zc = any(Itni_p,1) & any(Itni_n,1); % horizontal indices of locations where zero-crossing occurs
-    [min_tni, lminr]=min(abs(tni));
-    cond1=min_tni>delta;
-    final=min_tni<=delta; % at these horizontal indices root has been found
-    fr= zc & cond1; %  at these horizontal locations we have to increase the vertical resolution before finding the root
-    
-    lminr=lminr+stack*[0:size(Itni_n,2)-1];
-    lminr=lminr(final);
-    
-    sns_out(inds(final))=s(lminr); % adjust surface where root has already been found
-    ctns_out(inds(final)) =ct(lminr);
-    pns_out(inds(final)) =p(lminr);
-    
-    
-    if all(~fr) % break out of loop if all roots have been found
-        break
-    end
-    
-    k=sum(Itni_n,1); % find indices of flattened 3d-array where vertical resolution must be increased
-    k=k+stack*[0:size(Itni_n,2)-1];
-    k=k(fr);
-    
-    ds_ =  ( s(k+1) - s(k))/refine_ints; % increase resolution in the vertical
-    dct_ = (ct(k+1) - ct(k))/refine_ints;
-    dp_ =  (p(k+1) - p(k))/refine_ints;
-    
-    ds_ =bsxfun(@times, ds_, [0:refine_ints]');
-    dct_ = bsxfun(@times, dct_, [0:refine_ints]');
-    dp_ = bsxfun(@times, dp_, [0:refine_ints]');
-    
-    s =  bsxfun(@plus,s(k),ds_);
-    ct =  bsxfun(@plus,ct(k),dct_);
-    p =  bsxfun(@plus,p(k),dp_);
-    
+    sns_out(ii)= su+(sl-su)*(proot-pu)/(pl-pu);
+    ctns_out(ii)=ctu+(ctl-ctu)*(proot-pu)/(pl-pu);
+    pns_out(ii)=proot;
 end
+    
+% 
+% refine_ints=100;
+% 
+% cnt=0;
+% while 1
+%     cnt=cnt+1;
+%     
+%     if cnt==1 % in first iteration pns_l is stacked vertically zi times, after that it is stacked refine_ints times
+%         stack=zi;
+%     elseif cnt==2
+%         stack=refine_ints+1;
+%     end
+%     if cnt==1 | cnt==2
+%         ii=bsxfun(@times,1:yi*xi,ones(stack,1));
+%         pns_stacked=pns(ii); % stack pressure of current surface vertically
+%         t2_stacked_full=t2(ii); % stack locally referenced density of current surface vertically
+%     end
+%     
+%     inds=inds(fr); % points where surface has not been corrected
+%     t1=gsw_rho(s(:,:),ct(:,:),pns_stacked(:,inds)); % 3-d density referenced to pressure of the current surface
+%     t2_3d=t2_stacked_full(:,inds); %
+%     tni=t1-t2_3d; % rho-(rho_s+rho'); find corrected surface by finding roots of this term
+%     
+%     Itni_p = tni>0;
+%     Itni_n = tni<0;
+%     
+%     zc = any(Itni_p,1) & any(Itni_n,1); % horizontal indices of locations where zero-crossing occurs
+%     [min_tni, lminr]=min(abs(tni));
+%     cond1=min_tni>delta;
+%     final=min_tni<=delta; % at these horizontal indices root has been found
+%     fr= zc & cond1; %  at these horizontal locations we have to increase the vertical resolution before finding the root
+%     
+%     lminr=lminr+stack*[0:size(Itni_n,2)-1];
+%     lminr=lminr(final);
+%     
+%     sns_out(inds(final))=s(lminr); % adjust surface where root has already been found
+%     ctns_out(inds(final)) =ct(lminr);
+%     pns_out(inds(final)) =p(lminr);
+%     
+%     
+%     if all(~fr) % break out of loop if all roots have been found
+%         break
+%     end
+%     
+%     k=sum(Itni_n,1); % find indices of flattened 3d-array where vertical resolution must be increased
+%     k=k+stack*[0:size(Itni_n,2)-1];
+%     k=k(fr);
+%     
+%     ds_ =  ( s(k+1) - s(k))/refine_ints; % increase resolution in the vertical
+%     dct_ = (ct(k+1) - ct(k))/refine_ints;
+%     dp_ =  (p(k+1) - p(k))/refine_ints;
+%     
+%     ds_ =bsxfun(@times, ds_, [0:refine_ints]');
+%     dct_ = bsxfun(@times, dct_, [0:refine_ints]');
+%     dp_ = bsxfun(@times, dp_, [0:refine_ints]');
+%     
+%     s =  bsxfun(@plus,s(k),ds_);
+%     ct =  bsxfun(@plus,ct(k),dct_);
+%     p =  bsxfun(@plus,p(k),dp_);
+%     
+% end
+
 end
 
 
@@ -277,6 +315,9 @@ user_input;
 
 % flag wet points (mixed layer excluded)
 wet=~isnan(vv);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% alternative code
 
 L=zeros(size(wet)); % label matrix
 
@@ -309,6 +350,61 @@ end
 for ii=1:iregion-1;
     regions{ii}=find(L==ii);
 end
+
+% alternative code
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% alternative code
+
+% cc=bwconncomp(wet,4);
+% 
+% if zonally_periodic; % in a zonally periodic domain merge regions which are cut apart by grid boundary
+%     
+%     % find regions which have points at western and eastern boundary
+%     bdy_wet=false(1,length(cc.PixelIdxList));
+%     ireg=1:length(cc.PixelIdxList);
+%     for ii=ireg
+%         if any(cc.PixelIdxList{ii}<=yi | cc.PixelIdxList{ii}>yi*(xi-1))
+%             bdy_wet(ii)=true;
+%         end
+%     end
+%     iw=ireg(bdy_wet);
+%     
+%     merged=false(1,length(cc.PixelIdxList));
+%     
+%     ii=1;
+%     while ii<=length(iw)
+%         for jj=1: length(iw)
+%             if ii~=jj && ~(merged(iw(ii)) || merged(iw(jj)))
+%                 pts1=cc.PixelIdxList{iw(ii)};
+%                 pts2=cc.PixelIdxList{iw(jj)};
+%                 % check if western border of region iw(ii) intersects
+%                 % with eastern border of region iw(jj), or vice versa
+%                 cond1=~isempty( intersect( pts1(pts1<=yi)+yi*(xi-1),pts2(pts2>yi*(xi-1)) ) );
+%                 cond2=~isempty( intersect( pts2(pts2<=yi)+yi*(xi-1),pts1(pts1>yi*(xi-1)) ) );
+%                 if cond1 | cond2
+%                     cc.PixelIdxList{iw(ii)}=union( pts1, pts2 );
+%                     merged(iw(jj))=true; % iw(jj) has been merged into iw(ii); delete later
+%                     ii=ii-1;
+%                     break
+%                 end
+%             end
+%         end
+%         ii=ii+1;
+%     end
+%     % delete merged regions
+%     remove=ireg(merged);
+%     for ii= remove(end:-1:1)
+%         cc.PixelIdxList(ii)=[];
+%     end
+% end
+% regions=cc.PixelIdxList;
+
+% alternative code
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+
 end
 
 

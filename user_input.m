@@ -12,7 +12,7 @@ if initial_surface_at_constant_pressure;
     initial_pressure=1e3;
     nlevels=length(initial_pressure);
 else
-    glevels=[29];
-    p_r=300; % reference pressure for initial surface
+    glevels=[26.8];
+    p_r=0; % reference pressure for initial surface
     nlevels=length(glevels);
 end
