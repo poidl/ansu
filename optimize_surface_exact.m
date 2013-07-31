@@ -50,7 +50,6 @@ user_input;
 [zi,yi,xi] = size(s);
 
 % prepare data
-p_mid = 0.5*(p(2:zi,:,:) + p(1:zi-1,:,:)); % pressure at the grid on which n2 is defined
 cut_off_choice(1,1:yi,1:xi) = mld(s,ct,p); % mixed-layer depth
 
 % iterations of inversion
@@ -86,7 +85,7 @@ while it<=nit;
     xx = squeeze(xx);
     yy = squeeze(yy);
     pns = squeeze(pns);
-   
+    
     % find independent regions -> a least-squares problem is solved for
     % each of these regions
     regions=find_regions(pns);
@@ -97,11 +96,83 @@ while it<=nit;
     % find corrected surface
     [sns, ctns, pns] = dz_from_phiprime(sns, ctns, pns, s, ct, p, phiprime );
     
+    % Locations where outcropping occurs may have changed. Add points to
+    % surface if necessary.
+    if it<nit;
+        disp('Wetting')
+        [sns,ctns,pns]=wetting(sns,ctns,pns,s,ct,p);
+    end
+    
 end
 
 sns_i=sns;
 ctns_i=ctns;
 pns_i=pns;
+
+end
+
+
+function [sns,ctns,pns]=wetting(sns,ctns,pns,s,ct,p)
+
+[zi,yi,xi]=size(sns);
+
+wet=~isnan(s(1,:,:)) & isnan(sns); % wet points at ocean surface excluding ans
+wets=~isnan(sns); % wet points on ans
+wet=squeeze(wet);
+wets=squeeze(wets);
+nn=wet(:) & circshift(wets(:),-1); % wet points with north. neighbour on ans
+sn=wet(:) & circshift(wets(:),1);
+en=wet(:) & circshift(wets(:),-yi);
+wn=wet(:) & circshift(wets(:),yi);
+
+% if a point adjacent to ans boundary has multiple neighbours, just do one neutral
+% calculation
+% TODO: start in eastward direction? Trevor has preference, see notes.
+wn=wn & ~en;
+nn=nn & ~wn & ~en;
+sn=sn & ~nn & ~wn & ~en;
+
+neighbour=circshift(en,yi);
+[sns(en),ctns(en),pns(en)] = depth_ntp_iter(sns(neighbour)',ctns(neighbour)',pns(neighbour)',s(:,en),ct(:,en),p(:,en)); 
+
+neighbour=circshift(wn,-yi);
+[sns(wn),ctns(wn),pns(wn)] = depth_ntp_iter(sns(neighbour)',ctns(neighbour)',pns(neighbour)',s(:,wn),ct(:,wn),p(:,wn)); 
+
+neighbour=circshift(nn,1);
+[sns(nn),ctns(nn),pns(nn)] = depth_ntp_iter(sns(neighbour)',ctns(neighbour)',pns(neighbour)',s(:,nn),ct(:,nn),p(:,nn)); 
+
+neighbour=circshift(sn,-1);
+[sns(sn),ctns(sn),pns(sn)] = depth_ntp_iter(sns(neighbour)',ctns(neighbour)',pns(neighbour)',s(:,sn),ct(:,sn),p(:,sn)); 
+
+% for ii=transpose(find(en));
+%     jj=ii;
+%     if ii+yi>xi*yi;
+%         jj=jj-xi*yi;
+%     end
+%     [sns(ii),ctns(ii),pns(ii)] = depth_ntp_new(sns(jj+yi),ctns(jj+yi),pns(jj+yi),s(:,ii),ct(:,ii),p(:,ii)); 
+% end
+% for ii=transpose(find(wn));
+%     jj=ii;
+%     if ii-yi<1;
+%         jj=jj+xi*yi;
+%     end
+%     [sns(ii),ctns(ii),pns(ii)] = depth_ntp_new(sns(jj-yi),ctns(jj-yi),pns(jj-yi),s(:,ii),ct(:,ii),p(:,ii)); 
+% end
+% for ii=transpose(find(nn));
+%     jj=ii;
+%     if ii+1>xi*yi;
+%         jj=jj-xi*yi;
+%     end    
+%     [sns(ii),ctns(ii),pns(ii)] = depth_ntp_new(sns(jj+1),ctns(jj+1),pns(jj+1),s(:,ii),ct(:,ii),p(:,ii)); 
+% end
+% for ii=transpose(find(sn));
+%     jj=ii;
+%     if ii-1<1;
+%         jj=jj+xi*yi;
+%     end    
+%     [sns(ii),ctns(ii),pns(ii)] = depth_ntp_new(sns(jj-1),ctns(jj-1),pns(jj-1),s(:,ii),ct(:,ii),p(:,ii)); 
+% end
+
 
 end
 

@@ -1,280 +1,106 @@
-function [SAns,CTns,pns] = depth_ntp(SA0,CT0,p0,SA,CT,p)
+function [sns,tns,pns] = depth_ntp(s0,t0,p0,s,t,p)
 
-% depth_ntp                 Absolute Salinity, Conservative Temperature and
-%                           in situ Pressure, of the neutral tangent plane
-%                           on the neighbouring cast                        
-%==========================================================================
-% 
-% USAGE:  
-%  [SAns,CTns,pns] = depth_ntp_v2(SA0,CT0,p0,SA,CT,p)
-%
-% DESCRIPTION:
-%  Find the position in Absolute Salinity, Conservative Temperature and in 
-%  situ Pressure where the neutral tangent plane passing through a bottle 
-%  intersects a neighbouring cast
-%
-%  The principle is based on successive approximations
-%  - 1: One looks for the simple approximation of neutral tangent plane by
-%       finding the right pressure in the neighbouring cast by minizing the  
-%       difference between the pressure of the bottle and the cast. It will 
-%       be the starting point for the next part 
-%                 
-%  - 2: One studies then the difference in potential density between the 
-%       bottle and the point of the cast. According to the sign, ones looks
-%       for the next point denser or less dense. Ones finds in this way an
-%       area between a point denser and another less dense for evaluating
-%       the position of neutral tangent plane
-% 
-%  - 3: The position between these two points of the cast is approximate by
-%       a Newton-Raphson method.
-%
-%  INPUT :        
-%   SA0  =  the bottle Absolute Salinity                        [ g kg^-1 ]
-%   CT0  =  the bottle Conservative Temperature                   [ deg C ]
-%   p0   =  the bottle In situ pressure                            [ dbar ]
-%   SA   =  vector of cast Absolute Salinities                  [ g kg^-1 ]
-%   CT   =  vector of cast Conservative Temperatures              [ deg C ]
-%   p    =  vector of cast In situ pressures                       [ dbar ]
-% 
-%   SA0, CT0 & p0 need to be scalars (dimension 1x1)
-%   SA, CT & p need to be vector the dimensions may be Nx1 or 1xN with at 
-%   least N>1 
-%
-%  OUTPUT :       
-%   SAns  =  Absolute Salinity of the ntp intersection          [ g kg^-1 ]
-%   CTns  =  Conservative Temperature of the ntp intersection     [ deg C ]
-%   pns   =  In situ pressure of the ntp intersection              [ dbar ]
-%
-%  AUTHOR:          
-%   David Jacket
-%   Modified by Guillaume Serazin 
-% 
-% VERSION NUMBER: 2.0
-%==========================================================================
+%%  Find the position where the neutral tangent plane passing through a bottle 
+%%  intersects a neighbouring cast 
+%%
+%%  Usage :        [sns,tns,pns] = depth_ntp(s0,t0,p0,s,t,p)
+%%
+%%  Input :        s0    the bottle salinity
+%%                 t0    the bottle conservative temperature
+%%                 p0    the bottle pressure
+%%                 s     vector of cast salinities
+%%                 t     vector of cast conservative temperatures
+%%                 p     vector of cast pressures
+%%
+%%  Output :       sns   salinity of the ntp intersection
+%%                 tns   conservative temperature of the intersection
+%%                 pns   pressure of the intersection
+%%
+%%  Units :        salinities	  psu (IPSS-78)
+%%                 temperatures   degrees C (IPS-90)
+%%                 pressures      db
+
+%%  DRJ on 17/06/03
 
 
-%--------------------------------------------------------------------------
-% Check variables and resize if necessary
-%--------------------------------------------------------------------------
-if ~(nargin == 6)
-   error('depth_ntp:  Requires three inputs')
-end
-if ~(nargout == 3)
-   error('depth_ntp:  Requires two outputs')
-end 
+n = length(s); e = zeros(n,1);
 
-[msb,nsb] = size(SA0);
-[mtb,ntb] = size(CT0);
-[mpb,npb] = size(p0);
-[ms,ns] = size(SA);
-[mt,nt] = size(CT);
-[mp,np] = size(p);
+%		find the bottle pairs containing a crossing
 
-if(msb*nsb*mtb*ntb*mpb*npb ~= 1)
-    error('depth_ntp: Inputs array dimensions arguments do not agree')
-end
-
-if (mt ~= ms || mt ~= mp || ns ~= nt || ns ~= np)
-    error('depth_ntp: SA and CT must have same dimensions')
-end
-if(ms*mt*mp == 1 && ns*nt*np ~=1)
-    if(ms*mt*mp ~= 1 && ns*nt*np ==1)
-        error('depth_ntp: Inputs array dimensions arguments do not agree')
-    else
-        error('depth_ntp: There must be at least 2 bottles')
-    end
-end
-
-
-%--------------------------------------------------------------------------
-% Start of the calculation
-%--------------------------------------------------------------------------
-
-n = length(SA);
-
-%1)Looking for the closest pressure to find the starting point
-%-------------------------------------------------------------
-[~,c]=min(abs(p-p0)); %c for cast
-
-
-%Evaluating the difference in potential density
-[sigl,sigu] = sig_vals(SA0,CT0,p0,SA(c),CT(c),p(c));
-e = sigu - sigl;
-
-%Testing exact crossing
-%----------------------
-if e == 0
-    SAns = SA(c);
-    CTns = CT(c);
-    pns = p(c);
-    
-%Testing materiality of points
-%-----------------------------
-elseif isnan(e)
-    SAns = NaN;
-    CTns = NaN;
-    pns=NaN;
-    
-%Case when starting point less dense than the bottle
-%---------------------------------------------------
-elseif (e<0&&c<n)
-    %Initializing variables
-    c_d=c+1;                    %design the next cast deep
-    iter = 0;
-    success = 0;
-    [sigl_d,sigu_d] = sig_vals(SA0,CT0,p0,SA(c_d),CT(c_d),p(c_d));
-    e_d=sigu_d - sigl_d;
-    
-    %2) Looking for the right area
-    %While the next point is less dense than the bottle
-    %-> going deep
-    while(e_d<0&&c_d<n)
-        %Testing exact crossing
-        if e_d == 0
-            SAns = SA(c);
-            CTns = CT(c);
-            pns = p(c);
-            success =1;
-            break
-        end
-        %Reaching the next area deep
-        e=e_d;
-        c=c_d;
-        c_d=c_d+1;
-        [sigl_d,sigu_d] = sig_vals(SA0,CT0,p0,SA(c_d),CT(c_d),p(c_d));
-        e_d=sigu_d - sigl_d;
-    end
-    
-    pc0 = p(c) - e*(p(c_d) - p(c))/(e_d - e);
-    %Testing undercropping
-    if isnan(pc0)
-        SAns = NaN;
-        CTns = NaN;
-        pns=NaN;
-        success =1;
-    end
-    
-    %3)Developping some Newton-Raphson iteration
-    while success == 0
-        iter = iter + 1;
-        [SAc0,CTc0] = stp_interp([SA(c),SA(c_d)],[CT(c),CT(c_d)],[p(c),p(c_d)],pc0);
-        [sigl,sigu] = sig_vals(SA0,CT0,p0,SAc0,CTc0,pc0);
-        ec0 = sigu - sigl;
-        p1 = 0.5*(p(c) + pc0);
-        ez1 = (e- ec0)/(pc0 - p(c));
-        p2 = 0.5*(pc0 + p(c_d));
-        ez2 = (ec0 - e_d)/(p(c_d) - pc0);
-        r = (pc0 - p1)/(p2 - p1);
-        ecz_0 = ez1 + r*(ez2 - ez1);
-        if iter == 1
-            ecz0 = ecz_0;
-        else
-            ecz0 = -(ec0 - ec_0)/(pc0 - pc_0);
-            if ecz0 == 0
-                ecz0 = ecz_0;
-            end
-        end
-        pc1 = pc0 + ec0/ecz0;
-        eps = abs(pc1 - pc0);
-        %Testing the accuracy
-        if abs(ec0) <= 5e-5 && eps <= 5e-3
-            SAns = SAc0;
-            CTns = CTc0;
-            pns = pc0;
+ncr = 0;
+for k = 1:n
+  [sigl,sigu] = sig_vals(s0,t0,p0,s(k),t(k),p(k));
+  e(k) = sigu-sigl;
+  if k>1    
+    if e(k-1)==0                   %  an exact crossing at the k-1 bottle
+      ncr = ncr+1; sns = s(k-1); tns = t(k-1); pns = p(k-1);
+    elseif e(k)*e(k-1)<0           %  a crossing between k-1 and k bottles
+      ncr = ncr+1;
+                                   %  some Newton-Raphson iterations
+      pc0 = p(k-1)-e(k-1)*(p(k)-p(k-1))/(e(k)-e(k-1));
+      iter = 0; success = 0;
+      while success==0
+        iter = iter+1;
+        [sc0,tc0] = stp_interp([s(k-1),s(k)],[t(k-1),t(k)],[p(k-1),p(k)],pc0);
+        [sigl,sigu] = sig_vals(s0,t0,p0,sc0,tc0,pc0);
+		ec0 = sigu-sigl;
+        p1 = 0.5*(p(k-1)+pc0);
+	    ez1 = (e(k-1)-ec0)/(pc0-p(k-1));
+		p2 = 0.5*(pc0+p(k));
+		ez2 = (ec0-e(k))/(p(k)-pc0);
+		r = (pc0-p1)/(p2-p1);
+		ecz_0 = ez1+r*(ez2-ez1);
+        if iter==1
+          ecz0 = ecz_0;
+	    else
+          ecz0 = -(ec0-ec_0)/(pc0-pc_0);
+          if ecz0==0, ecz0 = ecz_0; end
+	    end
+        pc1 = pc0+ec0/ecz0;
+                                   %  strategy when iteration jumps out of inteval
+        if pc1<p(k-1) | pc1>p(k)
+          indsp = find(finite(s));
+          [sns,tns,pns,niter] = e_solve(s(indsp),t(indsp),p(indsp),e(indsp),k,s0,t0,p0);
+		  if pns<p(k-1) | pns>p(k)
+            disp('****ERROR**** in depth-ntp.m')
+            return
+          else
             success = 1;
-            niter = iter;
-        elseif iter > 10
-            [SAns,CTns,pns,niter] = e_solve(SA,CT,p,[e e_d],[c c_d],SA0,CT0,p0);
-            success = 1;
+          end
         else
-            pc_0 = pc0;
-            ec_0 = ec0;
-            pc0 = pc1;
-            success = 0;
+                                   %  test accuracy of the iterate
+          eps = abs(pc1-pc0);
+          if abs(ec0)<=5.d-5&eps<=5.d-3
+            sns = sc0; tns = tc0; pns = pc0;
+            success = 1; niter = iter;
+          elseif iter>10
+            [sns,tns,pns,niter] = e_solve(s,t,p,e,k,s0,t0,p0);
+		    success = 1;
+	      else
+            pc_0 = pc0; ec_0 = ec0; pc0 = pc1;
+		    success = 0;
+          end
         end
+      end
     end
-    
-%Case when starting point is denser than the bottle
-%--------------------------------------------------
-elseif (e>0&&c>1)
-    c_s=c-1;    %design the next cast shallow
-    success = 0;
-    iter = 0;
-    [sigl_u,sigu_u] = sig_vals(SA0,CT0,p0,SA(c_s),CT(c_s),p(c_s));
-    e_s=sigu_u - sigl_u;
-    
-    %2) Looking for the right area
-    %While the next point is denser than the bottle :
-    %-> going shallow
-    while(e_s>0&&c_s>1)
-        %Testing exact crossing
-        if e_s == 0
-            SAns = SA(c);
-            CTns = CT(c);
-            pns = p(c);
-            success =1;
-            break
-        end
-        %Reaching the next point shallow
-        e=e_s;
-        c=c_s;
-        c_s=c_s-1;  
-        [sigl_u,sigu_u] = sig_vals(SA0,CT0,p0,SA(c_s),CT(c_s),p(c_s));
-        e_s=sigu_u - sigl_u;
-    end
-    
-    pc0 = p(c_s) - e_s*(p(c) - p(c_s))/(e - e_s);
-    %Testing outcropping
-    if pc0<-1.5
-        SAns = NaN;
-        CTns = NaN;
-        pns=NaN;
-        success =1;
-    end
-    
-    %3) Developping some Newton-Raphson iterations
-    while success == 0
-        iter = iter + 1;
-        [SAc0,CTc0] = stp_interp([SA(c_s),SA(c)],[CT(c_s),CT(c)],[p(c_s),p(c)],pc0);
-        [sigl,sigu] = sig_vals(SA0,CT0,p0,SAc0,CTc0,pc0);
-        ec0 = sigu - sigl;
-        p1 = 0.5*(p(c_s) + pc0);
-        ez1 = (e_s- ec0)/(pc0 - p(c_s));
-        p2 = 0.5*(pc0 + p(c));
-        ez2 = (ec0 - e)/(p(c) - pc0);
-        r = (pc0 - p1)/(p2 - p1);
-        ecz_0 = ez1 + r*(ez2 - ez1);
-        if iter == 1
-            ecz0 = ecz_0;
-        else
-            ecz0 = -(ec0 - ec_0)/(pc0 - pc_0);
-            if ecz0 == 0
-                ecz0 = ecz_0;
-            end
-        end
-        pc1 = pc0 + ec0/ecz0;
-        eps = abs(pc1 - pc0);
-        %Testing the accuracy
-        if abs(ec0) <= 5e-5 && eps <= 5e-3
-            SAns = SAc0;
-            CTns = CTc0;
-            pns = pc0;
-            success = 1;
-            niter = iter;
-        elseif iter > 10
-            [SAns,CTns,pns,niter] = e_solve(SA,CT,p,[e_s e],[c_s c],SA0,CT0,p0);
-            success = 1;
-        else
-            pc_0 = pc0;
-            ec_0 = ec0;
-            pc0 = pc1;
-            success = 0;
-        end
-    end
-else
-    SAns = NaN;
-    CTns = NaN;
-    pns=NaN;
+  end
+  if k==n&e(k)==0                  %  the last bottle
+    ncr = ncr+1;
+	sns = s(k); tns = t(k); pns = p(k);
+  end
 end
 
+                                   %  multiple and no crossings
+
+if ncr==0
+  if e(1)>0                                 %  outcropping
+    sns = nan; tns = nan; pns = nan;
+  else                                      %  undercropping
+    sns = nan; tns = nan; pns = nan;
+  end
+elseif ncr>=2                               %  multiple crossings
+	sns = nan; tns = nan; pns = nan;
+end
+
+    
 return
