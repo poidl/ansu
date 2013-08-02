@@ -1,16 +1,10 @@
 function [sns,tns,pns] = depth_ntp_iter(s0,t0,p0,s,t,p)
 
+%warning('no check of input dimensions')
+
 s=s(:,:);
 t=t(:,:);
 p=p(:,:);
-
-%ii=bsxfun(@times,1:size(s,2),ones(size(s,1),1));
-% 
-% s0=s0(ii);
-% t0=t0(ii);
-% p0=p0(ii);
-
-%pmid=0.5*(p0+p);
 
 zi=size(s,1);
 yixi=size(s,2);
@@ -33,11 +27,6 @@ while 1
     elseif cnt==2
         stack=refine_ints+1;
     end
-%     if cnt==2
-%         s0=s0(fr);
-%         t0=t0(fr);
-%         p0=p0(fr);
-%     end
     if cnt==1 | cnt==2
         ii=bsxfun(@times,1:yixi,ones(stack,1));
         s0_stacked=s0(ii);
@@ -52,21 +41,37 @@ while 1
     pmid=0.5*(p0_stacked+p);
     bottle=gsw_rho(s0_stacked,t0_stacked,pmid);
 
-    cast=gsw_rho(s(:,:),t(:,:),pmid); % 3-d density referenced to pressure of the current surface
-    dr=cast-bottle; % rho-(rho_s+rho'); find corrected surface by finding roots of this term
+    cast=gsw_rho(s(:,:),t(:,:),pmid); % 3-d density referenced to pmid
+    F=cast-bottle; 
+   
+    F_p = F>0;
+    F_n = F<0;
     
-    dr_p = dr>0;
-    dr_n = dr<0;
+    % TODO: a double-zero-crossing could arise due to linear interpolation for
+    % values that are close to 0 and of equal sign in F?
     
-    zc = any(dr_p,1) & any(dr_n,1); % horizontal indices of locations where zero-crossing occurs
-    [min_dr, lminr]=min(abs(dr));
-    cond1=min_dr>delta;
-    final=min_dr<=delta; % at these horizontal indices root has been found
-    fr= zc & cond1; %  at these horizontal locations we have to increase the vertical resolution before finding the root
+    zc_F_stable= F_n & circshift(F_p,-1); % stable zero crossing (F<0 at point and F>0 on point below);
+    zc_F_stable(end,:)=false; % discard bottom (TODO: should check if bottom point is negative, sufficiently close to zero and has a negative point above it)
     
-    lminr=lminr+stack*[0:size(dr_n,2)-1];
-    lminr=lminr(final);
+    k_zc=nan(1,size(zc_F_stable,2)); % initialize vertical index of zero crossing
+    any_zc_F_stable=any(zc_F_stable,1);
+    for ii=find(any_zc_F_stable); % check if there are multiple stable zero crossings
+        zc1=find(zc_F_stable(:,ii),1,'first'); % get the vertical index of shallowest zero crossing
+        zc_F_stable(zc1+1:end,ii)=false; % remove additional crossings
+        k_zc(ii)=zc1; % remember the vertical index of shallowest zero crossing
+    end
     
+    F_neg=F;
+    F_neg(~zc_F_stable)=nan; %  Matrix of negative F values which lie above zero crossings.
+          
+    [min_F, lminr]=min(abs(F_neg)); 
+    final=(min_F<=delta); % These are points with sufficiently small F.
+    
+    cond1=min_F>delta;
+    fr= any_zc_F_stable & cond1; %  at these horizontal locations we have to increase the vertical resolution before finding the root
+    
+    lminr=lminr+stack*[0:size(F_n,2)-1];
+    lminr=lminr(final); 
     
     sns(inds(final))=s(lminr); % adjust surface where root has already been found
     tns(inds(final)) =t(lminr);
@@ -77,8 +82,8 @@ while 1
         break
     end
     
-    k=sum(dr_n,1); % find indices of flattened 3d-array where vertical resolution must be increased
-    k=k+stack*[0:size(dr_n,2)-1];
+    k=k_zc; % find indices of flattened 3d-array where vertical resolution must be increased
+    k=k+stack*[0:size(F_n,2)-1];
     k=k(fr);
     
     ds_ =  ( s(k+1) - s(k))/refine_ints; % increase resolution in the vertical
