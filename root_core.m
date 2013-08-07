@@ -20,6 +20,7 @@ function [final,fr,k_zc]=root_core(F,delta,stack)
     k_zc(~any_zc_F_stable)=1; % dummy to avoid zeros as indices
 
     F_neg=F(k_zc+stack*[0:size(F,2)-1]); % value of F above the shallowest stable zero crossing (or dummy if there is no stable zero crossing)
+    F_neg(~any_zc_F_stable)=nan; % remove dummy indices
     
     final=(abs(F_neg)<=delta); % These are points with sufficiently small F.
 

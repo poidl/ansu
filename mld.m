@@ -40,26 +40,23 @@ if ~(nargin == 3)
   error('mld.m: requires 3 input arguments')
 end
 
-%% preallocate memory
-
 [zi,yi,xi] = size(s);
-mld_dpth = nan(yi,xi);
 
 %% calculate gamma^rf
 
-dens = gsw_rho(s,ct,zeros(zi,yi,xi));
+dens = gsw_rho(s(:,:),ct(:,:),zeros(zi,yi*xi));
 
 %% calculate mixed layer depth
 
-for j = 1:yi
-    for i = 1:xi
-        min_dens = dens(1,j,i);
-        if isnan(min_dens)
-            mld_dpth(j,i) = nan;
-        else
-            diff = min_dens + 0.3 - dens(:,j,i);
-            inds = find(diff(:) > 0);
-            mld_dpth(j,i) = p(inds(end),j,i);
-        end
-    end
-end
+min_dens=dens(1,:);
+mld_dpth=nan*ones(1,size(dens,2));
+thresh=bsxfun(@times,min_dens+0.3,ones(size(dens,1),1));
+pos=(thresh-dens)>0;
+ip=sum(pos,1);
+
+ii1=ip+size(dens,1)*[0:size(dens,2)-1];
+mld_dpth(ip>0)=p(ii1(ip>0));
+mld_dpth=reshape(mld_dpth,[yi,xi]);
+
+
+

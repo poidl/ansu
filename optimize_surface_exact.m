@@ -1,9 +1,6 @@
-function [sns_i,ctns_i,pns_i] = optimize_surface_exact(s,ct,p,g,n2,sns,ctns,pns,e1t,e2t)
+function [sns_i,ctns_i,pns_i] = optimize_surface_exact(s,ct,p,sns,ctns,pns,e1t,e2t)
 
 %           Optimize density surfaces to minimise the fictitious diapycnal diffusivity
-%
-% Usage:    [sns_i,ctns_i,pns_i] =
-%           Optimize_surface(s,ct,p,g,n2,sns,ctns,pns,e1t,e2t,nit,choice,wrap)
 %
 %           Optimize density surface using an iterative method to minimise
 %           fictitious diapycnal diffusivity according 'A new method of
@@ -14,8 +11,6 @@ function [sns_i,ctns_i,pns_i] = optimize_surface_exact(s,ct,p,g,n2,sns,ctns,pns,
 % Input:    s           salinity
 %           ct          conservative temperature
 %           p           pressure
-%           g           gravitational acceleration
-%           n2          buoyancy frequency
 %           sns         salinity on initial density surface
 %           ctns        conservative temperature on initial density
 %                       surface
@@ -27,7 +22,7 @@ function [sns_i,ctns_i,pns_i] = optimize_surface_exact(s,ct,p,g,n2,sns,ctns,pns,
 %           ctns_i      conservative temperature on optimized surface
 %           pns_i       pressure on optimized surface
 %
-% Calls:    mld.m, slope_error.m, var_on_surf.m
+% Calls:    mld.m, epsilon.m, var_on_surf.m
 %
 % Units:    salinity                    psu (IPSS-78)
 %           conservative temperature    degrees C (IPS-90)
@@ -50,6 +45,7 @@ user_input;
 [zi,yi,xi] = size(s);
 
 % prepare data
+%dbstop in mld at 50
 cut_off_choice(1,1:yi,1:xi) = mld(s,ct,p); % mixed-layer depth
 
 % iterations of inversion
@@ -57,7 +53,7 @@ it=0; % start with it=0 and increment it after the initial surface is written to
 while it<=nit;
     
     % calculate slope errors/density gradient errors
-    [ss,sx,sy,curl_s,ee,ex,ey,curl_e,ver] = slope_error(p,g,n2,sns,ctns,pns,e1t,e2t,'bp'); %#ok
+    [ex,ey] = epsilon(p,sns,ctns,pns,e1t,e2t); 
     
     % diagnose
     if save_iterations;
@@ -144,36 +140,6 @@ neighbour=circshift(nn,1);
 neighbour=circshift(sn,-1);
 [sns(sn),ctns(sn),pns(sn)] = depth_ntp_iter(sns(neighbour)',ctns(neighbour)',pns(neighbour)',s(:,sn),ct(:,sn),p(:,sn)); 
 
-% for ii=transpose(find(en));
-%     jj=ii;
-%     if ii+yi>xi*yi;
-%         jj=jj-xi*yi;
-%     end
-%     [sns(ii),ctns(ii),pns(ii)] = depth_ntp_new(sns(jj+yi),ctns(jj+yi),pns(jj+yi),s(:,ii),ct(:,ii),p(:,ii)); 
-% end
-% for ii=transpose(find(wn));
-%     jj=ii;
-%     if ii-yi<1;
-%         jj=jj+xi*yi;
-%     end
-%     [sns(ii),ctns(ii),pns(ii)] = depth_ntp_new(sns(jj-yi),ctns(jj-yi),pns(jj-yi),s(:,ii),ct(:,ii),p(:,ii)); 
-% end
-% for ii=transpose(find(nn));
-%     jj=ii;
-%     if ii+1>xi*yi;
-%         jj=jj-xi*yi;
-%     end    
-%     [sns(ii),ctns(ii),pns(ii)] = depth_ntp_new(sns(jj+1),ctns(jj+1),pns(jj+1),s(:,ii),ct(:,ii),p(:,ii)); 
-% end
-% for ii=transpose(find(sn));
-%     jj=ii;
-%     if ii-1<1;
-%         jj=jj+xi*yi;
-%     end    
-%     [sns(ii),ctns(ii),pns(ii)] = depth_ntp_new(sns(jj-1),ctns(jj-1),pns(jj-1),s(:,ii),ct(:,ii),p(:,ii)); 
-% end
-
-
 end
 
 
@@ -235,12 +201,9 @@ for iregion=1:length(regions)
     
     % put density changes calculated by the least-squares solver into
     % their appropriate position in the matrix
-    switch choice
-        case 's'
-            phiprime(region) = - x;
-        case 'epsilon'
-            phiprime(region) = x;
-    end
+
+    phiprime(region) = x;
+    
 end
 end
 
@@ -483,7 +446,7 @@ end
 
 
 function diagnose_and_write(it,sns,ctns,pns,ex,ey,phiprime_e)
-user_input; % read nit, choice, etc.
+user_input; % read nit, etc.
 
 if it==0 % initialize
     [gi,yi,xi]=size(sns);
@@ -509,14 +472,12 @@ if it>0
     iteration_history.phiprime_e_hist(it,:,:) = permute(phiprime_e,[3,1,2]);
 end
 
-if strcmp(choice, 'epsilon')
-    s1=ex(~isnan(ex));  
-    s2=ey(~isnan(ey));
-    square=[s1(:) ; s2(:)].^2;
-    slope_square(it+1,1) = sum(square);
-    no_pts =length(square);
-    iteration_history.eps_rms_hist(it+1,1) = sqrt(slope_square(it+1,1)/no_pts);
-end
+s1=ex(~isnan(ex));  
+s2=ey(~isnan(ey));
+square=[s1(:) ; s2(:)].^2;
+slope_square(it+1,1) = sum(square);
+no_pts =length(square);
+iteration_history.eps_rms_hist(it+1,1) = sqrt(slope_square(it+1,1)/no_pts);
 
 end
 
