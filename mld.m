@@ -49,12 +49,12 @@ dens = gsw_rho(s(:,:),ct(:,:),zeros(zi,yi*xi));
 %% calculate mixed layer depth
 
 min_dens=dens(1,:);
-mld_dpth=nan*ones(1,size(dens,2));
-thresh=bsxfun(@times,min_dens+0.3,ones(size(dens,1),1));
+mld_dpth=nan*ones(1,yi*xi);
+thresh=bsxfun(@times,min_dens+0.3,ones(zi,1));
 pos=(thresh-dens)>0;
 ip=sum(pos,1);
 
-ii1=ip+size(dens,1)*[0:size(dens,2)-1];
+ii1=ip+zi*[0:(yi*xi)-1];
 mld_dpth(ip>0)=p(ii1(ip>0));
 mld_dpth=reshape(mld_dpth,[yi,xi]);
 

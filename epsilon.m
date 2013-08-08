@@ -38,7 +38,6 @@ end
 
 %% initialize
 
-[gi,dummy,dummy] = size(sns); %#ok
 [zi,yi,xi] = size(p);
 
 %% calculate slope errors and epsilon
@@ -46,22 +45,22 @@ end
 [gradx_ct,grady_ct] = grad_surf(ctns,e1t,e2t);
 [gradx_s,grady_s] = grad_surf(sns,e1t,e2t);
 
-[zz,yy,xx]=size(sns);
+[yy,xx]=size(sns);
 [dummy,alpha,beta]=gsw_rho_alpha_beta(sns(:,:),ctns(:,:),pns(:,:));
-alpha=reshape(alpha,[zz,yy,xx]);
-beta=reshape(beta,[zz,yy,xx]);
+alpha=reshape(alpha,[yy,xx]);
+beta=reshape(beta,[yy,xx]);
 
-alpha_x = 0.5*( alpha + circshift(alpha,[0 0 -1]) );
-alpha_y = 0.5*( alpha + circshift(alpha,[0 -1 0]) );
-beta_x = 0.5 * ( beta + circshift(beta,[0 0 -1]) );
-beta_y = 0.5 * ( beta + circshift(beta,[0 -1 0]) );
+alpha_x = 0.5*( alpha + circshift(alpha,[0 -1]) );
+alpha_y = 0.5*( alpha + circshift(alpha,[-1 0]) );
+beta_x = 0.5 * ( beta + circshift(beta,[0 -1]) );
+beta_y = 0.5 * ( beta + circshift(beta,[-1 0]) );
 
-alpha_y(:,yi,:) = nan;
-beta_y(:,yi,:) = nan;
+alpha_y(yi,:) = nan;
+beta_y(yi,:) = nan;
 
 if ~zonally_periodic;
-    alpha_x(:,:,xi) = nan;
-    beta_x(:,:,xi) = nan;
+    alpha_x(:,xi) = nan;
+    beta_x(:,xi) = nan;
 end
 
 % calculate density gradient errors (epsilon)

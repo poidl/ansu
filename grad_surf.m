@@ -34,24 +34,18 @@ end
 
 %% calculate gradients
 
-[gi,yi,xi] = size(var_surf);
-
-e1t = repmat(e1t,[1 1 gi]);
-e1t = permute(e1t,[3 1 2]);
-
-e2t = repmat(e2t,[1 1 gi]);
-e2t = permute(e2t,[3 1 2]);
+[yi,xi] = size(var_surf);
 
 % calculate slope in longitude direction
 
-grad_x = ( circshift(var_surf,[0 0 -1])-var_surf )./ e1t;
+grad_x = ( circshift(var_surf,[0 -1])-var_surf )./ e1t;
 if ~zonally_periodic;
-    grad_x(:,:,xi)=nan;
+    grad_x(:,xi)=nan;
 end
 
 % calculate slope in latitude direction
 
- grad_y = ( circshift(var_surf,[0 -1 0])-var_surf )./ e2t;
- grad_y(:,yi,:) = nan;
+ grad_y = ( circshift(var_surf,[-1 0])-var_surf )./ e2t;
+ grad_y(yi,:) = nan;
  
  

@@ -42,11 +42,10 @@ function [sns_i,ctns_i,pns_i] = optimize_surface_exact(s,ct,p,sns,ctns,pns,e1t,e
 %
 
 user_input;
-[zi,yi,xi] = size(s);
 
 % prepare data
 %dbstop in mld at 50
-cut_off_choice(1,1:yi,1:xi) = mld(s,ct,p); % mixed-layer depth
+cut_off_choice = mld(s,ct,p); % mixed-layer depth
 
 % iterations of inversion
 it=0; % start with it=0 and increment it after the initial surface is written to output
@@ -78,10 +77,6 @@ while it<=nit;
     yy(pns<= cut_off_choice)=nan;
     pns(pns<=cut_off_choice)=nan;
     
-    xx = squeeze(xx);
-    yy = squeeze(yy);
-    pns = squeeze(pns);
-    
     % find independent regions -> a least-squares problem is solved for
     % each of these regions
     regions=find_regions(pns);
@@ -110,12 +105,10 @@ end
 
 function [sns,ctns,pns]=wetting(sns,ctns,pns,s,ct,p)
 
-[zi,yi,xi]=size(sns);
+[yi,xi]=size(sns);
 
-wet=~isnan(s(1,:,:)) & isnan(sns); % wet points at ocean surface excluding ans
+wet=~isnan(squeeze(s(1,:,:))) & isnan(sns); % wet points at ocean surface excluding ans
 wets=~isnan(sns); % wet points on ans
-wet=squeeze(wet);
-wets=squeeze(wets);
 nn=wet(:) & circshift(wets(:),-1); % wet points with north. neighbour on ans
 sn=wet(:) & circshift(wets(:),1);
 en=wet(:) & circshift(wets(:),-yi);
@@ -221,9 +214,9 @@ t2=t2.*(1-r*phiprime_e(:)); % approximately t2.*exp(-r*phiprime_e)
 
 inds=1:yi*xi;
 fr=true(1,yi*xi);
-pns_out = nan(1,yi,xi);
-sns_out = nan(1,yi,xi);
-ctns_out = nan(1,yi,xi);
+pns_out = nan(yi,xi);
+sns_out = nan(yi,xi);
+ctns_out = nan(yi,xi);
 pns=pns(:);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -449,7 +442,7 @@ function diagnose_and_write(it,sns,ctns,pns,ex,ey,phiprime_e)
 user_input; % read nit, etc.
 
 if it==0 % initialize
-    [gi,yi,xi]=size(sns);
+    [yi,xi]=size(sns);
     slope_square = nan(nit+1,1);
     
     sns_hist = nan(nit+1,yi,xi); % store variables on initial surface and on nit improvements (=> nit+1)
@@ -464,9 +457,9 @@ if it==0 % initialize
 end
 
 iteration_history = matfile(history_file,'Writable',true);
-iteration_history.sns_hist(it+1,:,:) = sns;
-iteration_history.ctns_hist(it+1,:,:) = ctns;
-iteration_history.pns_hist(it+1,:,:) = pns;
+iteration_history.sns_hist(it+1,:,:) = permute(sns,[3 1 2]);
+iteration_history.ctns_hist(it+1,:,:) = permute(ctns,[3 1 2]);
+iteration_history.pns_hist(it+1,:,:) = permute(pns,[3 1 2]);
 
 if it>0
     iteration_history.phiprime_e_hist(it,:,:) = permute(phiprime_e,[3,1,2]);
