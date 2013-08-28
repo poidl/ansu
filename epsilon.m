@@ -1,4 +1,4 @@
-function [ex,ey] = epsilon(p,sns,ctns,pns,e1t,e2t)
+function [ex,ey] = epsilon(sns,ctns,pns,e1t,e2t)
 
 %           Calculate density gradient errors
 %
@@ -32,13 +32,13 @@ user_input;
 
 %% check input arguments
 
-if ~(nargin == 6)
-    error('epsilon.m: requires 6 input arguments')
+if ~(nargin == 5)
+    error('epsilon.m: requires 5 input arguments')
 end
 
 %% initialize
 
-[zi,yi,xi] = size(p);
+[yi,xi] = size(sns);
 
 %% calculate slope errors and epsilon
 

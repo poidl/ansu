@@ -51,13 +51,10 @@ cut_off_choice = mld(s,ct,p); % mixed-layer depth
 it=0; % start with it=0 and increment it after the initial surface is written to output
 while it<=nit;
     
-    % calculate slope errors/density gradient errors
-    [ex,ey] = epsilon(p,sns,ctns,pns,e1t,e2t); 
-    
     % diagnose
     if save_iterations;
-        if it==0; % dummy value for phiprime
-            phiprime=nan;
+        if it==0; % dummy values
+            phiprime=nan; ex=nan; ey=nan;
         end
         diagnose_and_write(it,sns,ctns,pns,ex,ey,phiprime);
     end
@@ -69,23 +66,6 @@ while it<=nit;
     it=it+1; % start the next iteration
     disp(['Iteration nr.',int2str(it)]);
     
-    xx=ex; % code in current form uses density gradient errors (as opposed to slope errors) 
-    yy=ey;
-    
-    % disregard data above mixed layer depth
-    xx(pns<= cut_off_choice)=nan;
-    yy(pns<= cut_off_choice)=nan;
-    pns(pns<=cut_off_choice)=nan;
-    
-    % find independent regions -> a least-squares problem is solved for
-    % each of these regions
-    regions=find_regions(pns);
-    
-    % solve for phiprime
-    phiprime=solve_lsqr(regions, xx, yy, e1t, e2t);
-    
-    % find corrected surface
-    [sns, ctns, pns] = dz_from_phiprime(sns, ctns, pns, s, ct, p, phiprime );
     
     % Locations where outcropping occurs may have changed. Add points to
     % surface if necessary.
@@ -93,6 +73,27 @@ while it<=nit;
         disp('Wetting')
         [sns,ctns,pns]=wetting(sns,ctns,pns,s,ct,p);
     end
+    
+    % calculate slope errors/density gradient errors
+    [ex,ey] = epsilon(sns,ctns,pns,e1t,e2t); 
+    
+    % disregard data above mixed layer depth
+    ex(pns<= cut_off_choice)=nan;
+    ey(pns<= cut_off_choice)=nan;
+    sns(pns<=cut_off_choice)=nan;
+    ctns(pns<=cut_off_choice)=nan;
+    pns(pns<=cut_off_choice)=nan;
+ 
+    
+    % find independent regions -> a least-squares problem is solved for
+    % each of these regions
+    regions=find_regions(pns);
+    
+    % solve for phiprime
+    phiprime=solve_lsqr(regions, ex, ey, e1t, e2t);
+    
+    % find corrected surface
+    [sns, ctns, pns] = dz_from_phiprime(sns, ctns, pns, s, ct, p, phiprime );
     
 end
 
@@ -435,7 +436,7 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
 
 
-end
+end 
 
 
 function diagnose_and_write(it,sns,ctns,pns,ex,ey,phiprime_e)
@@ -443,14 +444,14 @@ user_input; % read nit, etc.
 
 if it==0 % initialize
     [yi,xi]=size(sns);
-    slope_square = nan(nit+1,1);
     
     sns_hist = nan(nit+1,yi,xi); % store variables on initial surface and on nit improvements (=> nit+1)
     ctns_hist = nan(nit+1,yi,xi);
     pns_hist = nan(nit+1,yi,xi);
-    eps_rms_hist=nan(nit+1,1);
-    phiprime_e_hist = nan(nit,yi,xi);
     
+    slope_square = nan(nit,1);
+    eps_rms_hist=nan(nit,1);
+    phiprime_e_hist = nan(nit,yi,xi);
     
     vars = {'sns_hist','ctns_hist','pns_hist','eps_rms_hist','phiprime_e_hist'};
     save(history_file, vars{:},'-v7.3');
@@ -463,16 +464,16 @@ iteration_history.pns_hist(it+1,:,:) = permute(pns,[3 1 2]);
 
 if it>0
     iteration_history.phiprime_e_hist(it,:,:) = permute(phiprime_e,[3,1,2]);
+    s1=ex(~isnan(ex));  
+    s2=ey(~isnan(ey));
+    square=[s1(:) ; s2(:)].^2;
+    slope_square(it,1) = sum(square);
+    no_pts =length(square);
+    iteration_history.eps_rms_hist(it,1) = sqrt(slope_square(it,1)/no_pts);
 end
 
-s1=ex(~isnan(ex));  
-s2=ey(~isnan(ey));
-square=[s1(:) ; s2(:)].^2;
-slope_square(it+1,1) = sum(square);
-no_pts =length(square);
-iteration_history.eps_rms_hist(it+1,1) = sqrt(slope_square(it+1,1)/no_pts);
-
 end
+
 
 
 
