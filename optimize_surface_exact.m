@@ -1,4 +1,4 @@
-function [sns_i,ctns_i,pns_i] = optimize_surface_exact(s,ct,p,sns,ctns,pns,e1t,e2t)
+function [sns_i,ctns_i,pns_i] = optimize_surface_exact(s,ct,p,sns,ctns,pns)
 
 %           Optimize density surfaces to minimise the fictitious diapycnal diffusivity
 %
@@ -47,6 +47,8 @@ user_input;
 %dbstop in mld at 50
 cut_off_choice = mld(s,ct,p); % mixed-layer depth
 
+stop_wetting=false;
+
 % iterations of inversion
 it=0; % start with it=0 and increment it after the initial surface is written to output
 while it<=nit;
@@ -54,9 +56,9 @@ while it<=nit;
     % diagnose
     if save_iterations;
         if it==0; % dummy values
-            phiprime=nan; ex=nan; ey=nan;
+            drho=nan;
         end
-        diagnose_and_write(it,sns,ctns,pns,ex,ey,phiprime);
+        diagnose_and_write(it,sns,ctns,pns,drho);
     end
     
     if it==nit; % break out if done
@@ -66,34 +68,46 @@ while it<=nit;
     it=it+1; % start the next iteration
     disp(['Iteration nr.',int2str(it)]);
     
-    
+
     % Locations where outcropping occurs may have changed. Add points to
     % surface if necessary.
-    if it<nit;
+    if it<nit && ~stop_wetting;
         disp('Wetting')
-        [sns,ctns,pns]=wetting(sns,ctns,pns,s,ct,p);
+        %if (it==1||it==2); % it==2 may not be necessary for good starting surfaces, but it is necessary when starting from an isobar
+        if (it==1); 
+            [sns,ctns,pns,neighbours]=wetting(sns,ctns,pns,s,ct,p);
+        else
+            n_neighbours_old=sum(neighbours);
+            [sns,ctns,pns,neighbours]=wetting(sns,ctns,pns,s,ct,p);
+            if sum(neighbours)>=n_neighbours_old;
+                stop_wetting=true;
+                disp(['Number of wet points added is equal or larger to previous iteration. Stop wetting.'])
+            end
+        end
     end
+
     
-    % calculate slope errors/density gradient errors
-    [ex,ey] = epsilon(sns,ctns,pns,e1t,e2t); 
+    % calculate delta^tilde rho
+    [drhodx,drhody]=delta_tilde_rho(sns,ctns,pns);
+        
     
-    % disregard data above mixed layer depth
-    ex(pns<= cut_off_choice)=nan;
-    ey(pns<= cut_off_choice)=nan;
-    sns(pns<=cut_off_choice)=nan;
-    ctns(pns<=cut_off_choice)=nan;
-    pns(pns<=cut_off_choice)=nan;
+%     % disregard data above mixed layer depth
+%     drhodx(pns<=cut_off_choice)=nan;
+%     drhody(pns<=cut_off_choice)=nan;
+%     sns(pns<=cut_off_choice)=nan;
+%     ctns(pns<=cut_off_choice)=nan;
+%     pns(pns<=cut_off_choice)=nan;
  
     
     % find independent regions -> a least-squares problem is solved for
     % each of these regions
     regions=find_regions(pns);
-    
-    % solve for phiprime
-    phiprime=solve_lsqr(regions, ex, ey, e1t, e2t);
+
+    % solve for delta rho
+    drho=solve_lsqr(regions, drhodx, drhody);
     
     % find corrected surface
-    [sns, ctns, pns] = dz_from_phiprime(sns, ctns, pns, s, ct, p, phiprime );
+    [sns, ctns, pns] = dz_from_drho(sns, ctns, pns, s, ct, p, drho );
     
 end
 
@@ -104,7 +118,7 @@ pns_i=pns;
 end
 
 
-function [sns,ctns,pns]=wetting(sns,ctns,pns,s,ct,p)
+function [sns,ctns,pns,neighbours]=wetting(sns,ctns,pns,s,ct,p)
 
 [yi,xi]=size(sns);
 
@@ -134,13 +148,22 @@ neighbour=circshift(nn,1);
 neighbour=circshift(sn,-1);
 [sns(sn),ctns(sn),pns(sn)] = depth_ntp_iter(sns(neighbour)',ctns(neighbour)',pns(neighbour)',s(:,sn),ct(:,sn),p(:,sn)); 
 
+neighbours= en | wn | nn | sn;
+
+s1=sum(~isnan(sns(en)));
+s2=sum(~isnan(sns(wn)));
+s3=sum(~isnan(sns(nn)));
+s4=sum(~isnan(sns(sn)));
+disp(['Number of points added: ',num2str(s1+s2+s3+s4)])
 end
 
 
-function phiprime=solve_lsqr(regions, xx, yy, e1t, e2t)
+
+
+function drho=solve_lsqr(regions, xx, yy)
 user_input;
 [yi,xi]=size(xx);
-phiprime = nan(yi,xi);
+drho = nan(yi,xi);
 
 for iregion=1:length(regions)
     
@@ -162,7 +185,7 @@ for iregion=1:length(regions)
     
     % set up north-south equations for weighted inversion
     nn= reg & circshift(reg,-1);
-    nn(1:yi:(xi-1)*yi+1)=false; % remove equations for northern boundary
+    nn(yi:yi:xi*yi)=false; % remove equations for northern boundary
     sreg_nn=circshift(sreg,-1);
     
     j1_ns=sreg_nn(nn);
@@ -181,7 +204,7 @@ for iregion=1:length(regions)
     
     % build sparse matrices
     A=sparse([i1,i2],[j1,j2],[ones(1,length(i1)),-ones(1,length(i2))]);
-    b=sparse( [xx(en).*e1t(en); yy(nn).*e2t(nn); 0 ]);
+    b=sparse( [xx(en); yy(nn); 0 ]);
     
     disp(['solving for region ',int2str(iregion)]);
     switch solver
@@ -196,22 +219,21 @@ for iregion=1:length(regions)
     % put density changes calculated by the least-squares solver into
     % their appropriate position in the matrix
 
-    phiprime(region) = x;
+    drho(region) = x;
     
 end
 end
 
 
-function [sns_out,ctns_out,pns_out] = dz_from_phiprime(sns, ctns, pns, s, ct, p, phiprime_e );
+function [sns_out,ctns_out,pns_out] = dz_from_drho(sns, ctns, pns, s, ct, p, drho );
 
 [zi,yi,xi]=size(s);
-phiprime_e = permute(phiprime_e, [3 1 2]);
+drho = permute(drho, [3 1 2]);
 
-r=1.0;
 delta = 1e-9;
 
-t2=gsw_rho(sns(:),ctns(:),pns(:));
-t2=t2.*(1-r*phiprime_e(:)); % approximately t2.*exp(-r*phiprime_e)
+rho_surf=gsw_rho(sns(:),ctns(:),pns(:));
+t2=rho_surf-drho(:);
 
 inds=1:yi*xi;
 fr=true(1,yi*xi);
@@ -298,6 +320,7 @@ while 1
     t2_stacked=t2_stacked(:,fr);
     
     t1=gsw_rho(s(:,:),ct(:,:),pns_stacked); % 3-d density referenced to pressure of the current surface
+
     F=t1-t2_stacked; % rho-(rho_s+rho'); find corrected surface by finding roots of this term
     
     %dbstop in root_core at 11
@@ -350,6 +373,10 @@ wet=~isnan(vv);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % alternative code
 
+remove_south=[1:yi:xi*yi]-1; % southern neighbours of southern boundary points
+remove_north=[yi:yi:xi*yi]+1; % northern neighbours of northern boundary points
+%remove=[remove_south, remove_north];
+
 L=zeros(size(wet)); % label matrix
 
 iregion=1; % region label
@@ -362,7 +389,10 @@ while 1
     L(idx) = iregion; % label first point
     while ~isempty(idx); % find neighbours
         offsets = [-1; yi; 1; -yi]; % neighbor offsets for a four-connected neighborhood
-        neighbors = bsxfun(@plus, idx, offsets'); % find all the nonzero 4-connected neighbors
+        neighbors_tmp = bsxfun(@plus, idx, offsets'); % find all the nonzero 4-connected neighbors
+        neighbors=setdiff(neighbors_tmp(:,1),remove_south);
+        neighbors=[neighbors, setdiff(neighbors_tmp(:,3),remove_north)];
+        neighbors=[neighbors, neighbors_tmp(:,2)', neighbors_tmp(:,4)'];
         if zonally_periodic;  
             neighbors(neighbors<1)=neighbors(neighbors<1)+xi*yi; 
             neighbors(neighbors>xi*yi)=neighbors(neighbors>xi*yi)-xi*yi;
@@ -439,7 +469,7 @@ end
 end 
 
 
-function diagnose_and_write(it,sns,ctns,pns,ex,ey,phiprime_e)
+function diagnose_and_write(it,sns,ctns,pns,drho)
 user_input; % read nit, etc.
 
 if it==0 % initialize
@@ -449,11 +479,12 @@ if it==0 % initialize
     ctns_hist = nan(nit+1,yi,xi);
     pns_hist = nan(nit+1,yi,xi);
     
-    slope_square = nan(nit,1);
-    eps_rms_hist=nan(nit,1);
-    phiprime_e_hist = nan(nit,yi,xi);
+    %slope_square = nan(nit,1);
+    %eps_rms_hist=nan(nit,1);
+    drho_rms_hist=nan(nit,1);
+    drho_hist = nan(nit,yi,xi);
     
-    vars = {'sns_hist','ctns_hist','pns_hist','eps_rms_hist','phiprime_e_hist'};
+    vars = {'sns_hist','ctns_hist','pns_hist','drho_rms_hist','drho_hist'};
     save(history_file, vars{:},'-v7.3');
 end
 
@@ -463,13 +494,17 @@ iteration_history.ctns_hist(it+1,:,:) = permute(ctns,[3 1 2]);
 iteration_history.pns_hist(it+1,:,:) = permute(pns,[3 1 2]);
 
 if it>0
-    iteration_history.phiprime_e_hist(it,:,:) = permute(phiprime_e,[3,1,2]);
-    s1=ex(~isnan(ex));  
-    s2=ey(~isnan(ey));
-    square=[s1(:) ; s2(:)].^2;
-    slope_square(it,1) = sum(square);
-    no_pts =length(square);
-    iteration_history.eps_rms_hist(it,1) = sqrt(slope_square(it,1)/no_pts);
+    iteration_history.drho_hist(it,:,:) = permute(drho,[3,1,2]);
+    
+    %s1=ex(~isnan(ex));  
+    %s2=ey(~isnan(ey));
+    %square=[s1(:) ; s2(:)].^2;
+    %slope_square(it,1) = sum(square);
+    %no_pts =length(square);
+    %iteration_history.eps_rms_hist(it,1) = sqrt(slope_square(it,1)/no_pts);
+    
+    iteration_history.drho_rms_hist(it,1)= sqrt( nanmean(drho(:).^2) );
+    
 end
 
 end
