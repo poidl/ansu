@@ -147,6 +147,7 @@ sn=sn & ~nn & ~wn & ~en;
 inds=[1:xi*yi]';
 inds_neighbour=circshift(inds,-yi);
 neighbour=inds_neighbour(en);
+
 [sns(en),ctns(en),pns(en)] = depth_ntp_iter(sns(neighbour)',ctns(neighbour)',pns(neighbour)',s(:,en),ct(:,en),p(:,en)); 
 
 inds_neighbour=circshift(inds,yi);
@@ -243,7 +244,6 @@ end
 function [sns_out,ctns_out,pns_out] = dz_from_drho(sns, ctns, pns, s, ct, p, drho );
 
 [zi,yi,xi]=size(s);
-drho = permute(drho, [3 1 2]);
 
 rho_surf=gsw_rho(sns(:),ctns(:),pns(:));
 t2=rho_surf-drho(:);
@@ -254,6 +254,9 @@ pns_out = nan(yi,xi);
 sns_out = nan(yi,xi);
 ctns_out = nan(yi,xi);
 pns=pns(:);
+
+pns_stacked=repmat(pns(fr)',[zi 1]); % stack pressure of current surface vertically
+t2_stacked=repmat(t2(fr)',[zi 1]); % stack locally referenced density of current surface vertically
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % alternative code
@@ -318,20 +321,6 @@ cnt=0;
 while 1
     cnt=cnt+1;
     
-    if cnt==1 % in first iteration pns_l is stacked vertically zi times, after that it is stacked refine_ints times
-        stack=zi;
-    elseif cnt==2
-        stack=refine_ints+1;
-    end
-    if cnt==1 | cnt==2
-        ii=bsxfun(@times,1:yi*xi,ones(stack,1));
-        pns_stacked=pns(ii); % stack pressure of current surface vertically
-        t2_stacked=t2(ii); % stack locally referenced density of current surface vertically
-    end
-    
-    pns_stacked=pns_stacked(:,fr);
-    t2_stacked=t2_stacked(:,fr);
-    
     t1=gsw_rho(s(:,:),ct(:,:),pns_stacked); % 3-d density referenced to pressure of the current surface
 
     F=t1-t2_stacked; % rho-(rho_s+rho'); find corrected surface by finding roots of this term
@@ -342,7 +331,10 @@ while 1
     if all(~fr) % break out of loop if all roots have been found
         break
     end
-
+    
+    pns_stacked=pns_stacked(1:refine_ints+1,fr);
+    t2_stacked=t2_stacked(1:refine_ints+1,fr);
+    
 end
 
 % alternative code

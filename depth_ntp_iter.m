@@ -13,25 +13,13 @@ pns = nan(1,yixi);
 sns = nan(1,yixi);
 ctns = nan(1,yixi);
 
+s0_stacked=repmat(s0(fr),[zi 1]); % stack vertically
+ct0_stacked=repmat(ct0(fr),[zi 1]); 
+p0_stacked=repmat(p0(fr),[zi 1]);
+
 cnt=0;
 while 1
     cnt=cnt+1;
-    
-    if cnt==1 % in first iteration pns_l is stacked vertically zi times, after that it is stacked refine_ints times
-        stack=zi;
-    elseif cnt==2
-        stack=refine_ints+1;
-    end
-    if cnt==1 | cnt==2
-        ii=bsxfun(@times,1:yixi,ones(stack,1));
-        s0_stacked=s0(ii);
-        ct0_stacked=ct0(ii);
-        p0_stacked=p0(ii);
-    end
-    
-    s0_stacked=s0_stacked(:,fr);
-    ct0_stacked=ct0_stacked(:,fr);
-    p0_stacked=p0_stacked(:,fr);
     
     pmid=0.5*(p0_stacked+p);
     bottle=gsw_rho(s0_stacked,ct0_stacked,pmid);
@@ -44,6 +32,10 @@ while 1
     if all(~fr) % break out of loop if all roots have been found
         break
     end
+    
+    s0_stacked=s0_stacked(1:refine_ints+1,fr);
+    ct0_stacked=ct0_stacked(1:refine_ints+1,fr);
+    p0_stacked=p0_stacked(1:refine_ints+1,fr);
    
 end
 
