@@ -189,7 +189,7 @@ for iregion=1:length(regions)
     
     en= reg & circshift(reg,-yi); %  find points between which phi_x can be computed. en is true at a point if its eastward neighbor is in the region
     if ~zonally_periodic;  % remove equations for eastern boundary for zonally-nonperiodic domain
-        en((xi-1)*yi:xi*yi)=false;
+        en((xi-1)*yi+1:xi*yi)=false;
     end
     sreg=cumsum(reg); % sparse indices of points forming the region (points of non-region are indexed with dummy)
     sreg_en=circshift(sreg,-yi); % sparse indices of eastward neighbours
