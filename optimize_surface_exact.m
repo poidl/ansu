@@ -243,6 +243,7 @@ end
 
 function [sns_out,ctns_out,pns_out] = dz_from_drho(sns, ctns, pns, s, ct, p, drho );
 
+user_input; % read delta
 [zi,yi,xi]=size(s);
 
 rho_surf=gsw_rho(sns(:),ctns(:),pns(:));
@@ -254,6 +255,17 @@ pns_out = nan(yi,xi);
 sns_out = nan(yi,xi);
 ctns_out = nan(yi,xi);
 pns=pns(:);
+
+% don't adjust at locations where abs(drho) is almost zero
+noadjust=abs(drho(:))<=delta;
+fr(noadjust)=false;
+inds=inds(fr);
+sns_out(noadjust)=sns(noadjust);
+ctns_out(noadjust)=ctns(noadjust);
+pns_out(noadjust)=pns(noadjust);
+s=s(:,fr);
+ct=ct(:,fr);
+p=p(:,fr);
 
 pns_stacked=repmat(pns(fr)',[zi 1]); % stack pressure of current surface vertically
 t2_stacked=repmat(t2(fr)',[zi 1]); % stack locally referenced density of current surface vertically
