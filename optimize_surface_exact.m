@@ -75,11 +75,11 @@ while it<=nit;
         disp('Wetting')
         %if (it==1||it==2); % it==2 may not be necessary for good starting surfaces, but it is necessary when starting from an isobar
         if (it==1); 
-            [sns,ctns,pns,neighbours]=wetting(sns,ctns,pns,s,ct,p);
+            [sns,ctns,pns,nneighbours]=wetting(sns,ctns,pns,s,ct,p);
         else
-            n_neighbours_old=sum(neighbours);
-            [sns,ctns,pns,neighbours]=wetting(sns,ctns,pns,s,ct,p);
-            if sum(neighbours)>=n_neighbours_old;
+            nneighbours_old=nneighbours;
+            [sns,ctns,pns,nneighbours]=wetting(sns,ctns,pns,s,ct,p);
+            if nneighbours>=nneighbours_old;
                 stop_wetting=true;
                 disp(['Number of wet points added is equal or larger to previous iteration. Stop wetting.'])
             end
@@ -97,7 +97,6 @@ while it<=nit;
 %     sns(pns<=cut_off_choice)=nan;
 %     ctns(pns<=cut_off_choice)=nan;
 %     pns(pns<=cut_off_choice)=nan;
- 
     
     % find independent regions -> a least-squares problem is solved for
     % each of these regions
@@ -118,7 +117,9 @@ pns_i=pns;
 end
 
 
-function [sns,ctns,pns,neighbours]=wetting(sns,ctns,pns,s,ct,p)
+function [sns,ctns,pns,nneighbours]=wetting(sns,ctns,pns,s,ct,p)
+
+user_input;
 
 [yi,xi]=size(sns);
 
@@ -129,6 +130,13 @@ sn=wet(:) & circshift(wets(:),1);
 en=wet(:) & circshift(wets(:),-yi);
 wn=wet(:) & circshift(wets(:),yi);
 
+nn(yi:yi:yi*xi)=false;
+sn(1:yi:(xi-1)*yi+1)=false;
+if ~zonally_periodic;
+    en((xi-1)*yi+1:xi*yi)=false;
+    wn(1:yi)=false;
+end
+
 % if a point adjacent to ans boundary has multiple neighbours, just do one neutral
 % calculation
 % TODO: start in eastward direction? Trevor has preference, see notes.
@@ -136,25 +144,31 @@ wn=wn & ~en;
 nn=nn & ~wn & ~en;
 sn=sn & ~nn & ~wn & ~en;
 
-neighbour=circshift(en,yi);
+inds=[1:xi*yi]';
+inds_neighbour=circshift(inds,-yi);
+neighbour=inds_neighbour(en);
 [sns(en),ctns(en),pns(en)] = depth_ntp_iter(sns(neighbour)',ctns(neighbour)',pns(neighbour)',s(:,en),ct(:,en),p(:,en)); 
 
-neighbour=circshift(wn,-yi);
+inds_neighbour=circshift(inds,yi);
+neighbour=inds_neighbour(wn);
 [sns(wn),ctns(wn),pns(wn)] = depth_ntp_iter(sns(neighbour)',ctns(neighbour)',pns(neighbour)',s(:,wn),ct(:,wn),p(:,wn)); 
 
-neighbour=circshift(nn,1);
+inds_neighbour=circshift(inds,-1);
+neighbour=inds_neighbour(nn);
 [sns(nn),ctns(nn),pns(nn)] = depth_ntp_iter(sns(neighbour)',ctns(neighbour)',pns(neighbour)',s(:,nn),ct(:,nn),p(:,nn)); 
 
-neighbour=circshift(sn,-1);
+inds_neighbour=circshift(inds,1);
+neighbour=inds_neighbour(sn);
 [sns(sn),ctns(sn),pns(sn)] = depth_ntp_iter(sns(neighbour)',ctns(neighbour)',pns(neighbour)',s(:,sn),ct(:,sn),p(:,sn)); 
-
-neighbours= en | wn | nn | sn;
 
 s1=sum(~isnan(sns(en)));
 s2=sum(~isnan(sns(wn)));
 s3=sum(~isnan(sns(nn)));
 s4=sum(~isnan(sns(sn)));
-disp(['Number of points added: ',num2str(s1+s2+s3+s4)])
+
+nneighbours=s1+s2+s3+s4;
+disp(['Number of points added: ',num2str(nneighbours)])
+
 end
 
 
