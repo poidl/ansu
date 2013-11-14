@@ -73,8 +73,8 @@ while it<=nit;
     % surface if necessary.
     if it<nit && ~stop_wetting;
         disp('Wetting')
-        %if (it==1||it==2); % it==2 may not be necessary for good starting surfaces, but it is necessary when starting from an isobar
-        if (it==1); 
+        if (it==1||it==2); % it==2 may not be necessary for good starting surfaces, but it is necessary when starting from an isobar
+        %if (it==1); 
             [sns,ctns,pns,nneighbours]=wetting(sns,ctns,pns,s,ct,p);
         else
             nneighbours_old=nneighbours;
@@ -187,7 +187,7 @@ for iregion=1:length(regions)
     reg=false(1,xi*yi)';
     reg(region)=true;
     
-    en= reg & circshift(reg,-yi); %  find points between which phi_x can be computed. en is true at a point if its eastward neighbor is in the region
+    en= reg & circshift(reg,-yi); %  find points between which a zonal gradient can be computed. en is true at a point if its eastward neighbor is in the region
     if ~zonally_periodic;  % remove equations for eastern boundary for zonally-nonperiodic domain
         en((xi-1)*yi+1:xi*yi)=false;
     end
@@ -205,7 +205,7 @@ for iregion=1:length(regions)
     j1_ns=sreg_nn(nn);
     j2_ns=sreg(nn);
     
-    % make the average of Phi' zero
+    % make the average of the potential zero
     % this should keep the surface from drifting away from the initial condition
     % we might change that to a different condition
     j1_condition=[1:sum(reg)];
@@ -337,9 +337,9 @@ while 1
     F=t1-t2_stacked; % rho-(rho_s+rho'); find corrected surface by finding roots of this term
     
     %dbstop in root_core at 11
-    [s,ct,p,sns_out,ctns_out,pns_out, inds, fr, dobreak]=root_core(F,stack,inds,refine_ints,s,ct,p,sns_out,ctns_out,pns_out);
+    [s,ct,p,sns_out,ctns_out,pns_out, inds, fr]=root_core(F,inds,refine_ints,s,ct,p,sns_out,ctns_out,pns_out);
     
-    if dobreak;
+    if all(~fr) % break out of loop if all roots have been found
         break
     end
 

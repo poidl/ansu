@@ -2,10 +2,6 @@ function [sns,ctns,pns] = depth_ntp_iter(s0,ct0,p0,s,ct,p)
 
 %warning('no check of input dimensions')
 
-s=s(:,:);
-ct=ct(:,:);
-p=p(:,:);
-
 zi=size(s,1);
 yixi=size(s,2);
 refine_ints=100;
@@ -43,9 +39,9 @@ while 1
     cast=gsw_rho(s(:,:),ct(:,:),pmid); % 3-d density referenced to pmid
     F=cast-bottle; 
    
-    [s,ct,p,sns,ctns,pns, inds,fr, dobreak]=root_core(F,stack,inds,refine_ints,s,ct,p,sns,ctns,pns);
+    [s,ct,p,sns,ctns,pns, inds,fr]=root_core(F,inds,refine_ints,s,ct,p,sns,ctns,pns);
     
-    if dobreak;
+    if all(~fr) % break out of loop if all roots have been found
         break
     end
    

@@ -1,11 +1,13 @@
-function [s,ct,p,sns_out,ctns_out,pns_out,inds, fr, dobreak]=root_core(F,stack,inds,refine_ints,s,ct,p,sns_out,ctns_out,pns_out);
+function [s,ct,p,sns_out,ctns_out,pns_out,inds, fr]=root_core(F,inds,refine_ints,s,ct,p,sns_out,ctns_out,pns_out);
 
 % final: boolean array of horizontal positions, indicating that root has been found
 % fr: boolean array of horizontal positions, indicating that there is a stable zero crossing and root has not been found yet (zoom here)
 % k_zc: a vector containing the vertical position of the zero crossing for each horizontal position
 
     user_input; % get delta
-    dobreak=false;
+
+    stack=size(F,1);
+    
     F_p = F>=0;
     F_n = F<0;
     
@@ -39,7 +41,6 @@ function [s,ct,p,sns_out,ctns_out,pns_out,inds, fr, dobreak]=root_core(F,stack,i
     inds=inds(fr); % points where surface has not been corrected
     
     if all(~fr) % break out of loop if all roots have been found
-        dobreak=true;
         return
     end
     

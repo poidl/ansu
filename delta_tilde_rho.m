@@ -21,8 +21,8 @@ user_input;
 
 pmid=0.5*(pns+circshift( pns, [0,-1]));
 
-r1=gsw_rho(sns(:,:),ctns(:,:),pmid);
-r2=gsw_rho( circshift(sns(:,:), [0 -1])  , circshift( ctns(:,:), [0 -1]) ,pmid);
+r1=gsw_rho(sns,ctns,pmid);
+r2=gsw_rho( circshift(sns, [0 -1])  , circshift( ctns, [0 -1]) ,pmid);
 
 drhodx=r2-r1;
 
@@ -33,8 +33,8 @@ end
 
 pmid=0.5*(pns+circshift( pns, [-1,0]));
 
-r1=gsw_rho(sns(:,:),ctns(:,:),pmid);
-r2=gsw_rho( circshift(sns(:,:), [-1 0])  , circshift( ctns(:,:), [-1 0]) ,pmid);
+r1=gsw_rho(sns,ctns,pmid);
+r2=gsw_rho( circshift(sns, [-1 0])  , circshift( ctns, [-1 0]) ,pmid);
 
 drhody=r2-r1;
 
