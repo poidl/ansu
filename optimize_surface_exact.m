@@ -223,7 +223,7 @@ for iregion=1:length(regions)
     disp(['solving for region ',int2str(iregion)]);
     switch solver
         case 'iterative'
-            [x,dummyflag] = lsqr(A,b,1e-7,50000);
+            [x,dummyflag] = lsqr(A,b,delta,50000);
         case 'exact'
             x = (A'*A)\(A'*b);
     end
@@ -239,12 +239,11 @@ end
 end
 
 
+
 function [sns_out,ctns_out,pns_out] = dz_from_drho(sns, ctns, pns, s, ct, p, drho );
 
 [zi,yi,xi]=size(s);
 drho = permute(drho, [3 1 2]);
-
-delta = 1e-9;
 
 rho_surf=gsw_rho(sns(:),ctns(:),pns(:));
 t2=rho_surf-drho(:);
@@ -338,32 +337,11 @@ while 1
     F=t1-t2_stacked; % rho-(rho_s+rho'); find corrected surface by finding roots of this term
     
     %dbstop in root_core at 11
-    [final,fr,k_zc]=root_core(F,delta,stack);
+    [s,ct,p,sns_out,ctns_out,pns_out, inds, fr, dobreak]=root_core(F,stack,inds,refine_ints,s,ct,p,sns_out,ctns_out,pns_out);
     
-    k_zc_3d=k_zc+stack*[0:size(F,2)-1]; % indices of flattened 3d-array where root has been found   
-    
-    sns_out(inds(final))=s(k_zc_3d(final)); % adjust surface where root has already been found
-    ctns_out(inds(final)) =ct(k_zc_3d(final));
-    pns_out(inds(final)) =p(k_zc_3d(final));
-    inds=inds(fr); % points where surface has not been corrected
-    
-    if all(~fr) % break out of loop if all roots have been found
+    if dobreak;
         break
     end
-    
-    k=k_zc_3d(fr);  % indices of flattened 3d-array where vertical resolution must be increased
-    
-    ds_ =  ( s(k+1) - s(k))/refine_ints; % increase resolution in the vertical
-    dt_ = (ct(k+1) - ct(k))/refine_ints;
-    dp_ =  (p(k+1) - p(k))/refine_ints;
-    
-    ds_ =bsxfun(@times, ds_, [0:refine_ints]');
-    dt_ = bsxfun(@times, dt_, [0:refine_ints]');
-    dp_ = bsxfun(@times, dp_, [0:refine_ints]');
-    
-    s =  bsxfun(@plus,s(k),ds_);
-    ct =  bsxfun(@plus,ct(k),dt_);
-    p =  bsxfun(@plus,p(k),dp_);
 
 end
 

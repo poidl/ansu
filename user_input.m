@@ -1,5 +1,6 @@
 zonally_periodic=true;
 solver = 'iterative';
+delta=1e-11;
 nit = 6*1-1;
 nit = 6*2;
 

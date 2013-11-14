@@ -1,9 +1,11 @@
-function [final,fr,k_zc]=root_core(F,delta,stack)
+function [s,ct,p,sns_out,ctns_out,pns_out,inds, fr, dobreak]=root_core(F,stack,inds,refine_ints,s,ct,p,sns_out,ctns_out,pns_out);
 
 % final: boolean array of horizontal positions, indicating that root has been found
 % fr: boolean array of horizontal positions, indicating that there is a stable zero crossing and root has not been found yet (zoom here)
 % k_zc: a vector containing the vertical position of the zero crossing for each horizontal position
 
+    user_input; % get delta
+    dobreak=false;
     F_p = F>=0;
     F_n = F<0;
     
@@ -25,6 +27,34 @@ function [final,fr,k_zc]=root_core(F,delta,stack)
     final=(abs(F_neg)<=delta); % These are points with sufficiently small F.
 
     cond1=abs(F_neg)>delta;
-    fr= any_zc_F_stable & cond1; %  at these horizontal locations we have to increase the vertical resolution before finding the root
-
+    fr= any_zc_F_stable & cond1; %  at these horizontal locations we have to increase the vertical resolution before finding the root    
+    
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+    k_zc_3d=k_zc+stack*[0:size(F,2)-1]; % indices of flattened 3d-array where root has been found   
+    
+    sns_out(inds(final))=s(k_zc_3d(final)); % adjust surface where root has already been found
+    ctns_out(inds(final)) =ct(k_zc_3d(final));
+    pns_out(inds(final)) =p(k_zc_3d(final));
+    inds=inds(fr); % points where surface has not been corrected
+    
+    if all(~fr) % break out of loop if all roots have been found
+        dobreak=true;
+        return
+    end
+    
+    k=k_zc_3d(fr);  % indices of flattened 3d-array where vertical resolution must be increased
+    
+    ds_ =  ( s(k+1) - s(k))/refine_ints; % increase resolution in the vertical
+    dct_ = (ct(k+1) - ct(k))/refine_ints;
+    dp_ =  (p(k+1) - p(k))/refine_ints;
+    
+    ds_ =bsxfun(@times, ds_, [0:refine_ints]');
+    dct_ = bsxfun(@times, dct_, [0:refine_ints]');
+    dp_ = bsxfun(@times, dp_, [0:refine_ints]');
+    
+    s =  bsxfun(@plus,s(k),ds_);
+    ct =  bsxfun(@plus,ct(k),dct_);
+    p =  bsxfun(@plus,p(k),dp_);
+    
 end
