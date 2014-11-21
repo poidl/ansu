@@ -1,6 +1,10 @@
 #!/bin/bash
 # The script worked for me on 2014/11/20. S. Riha
 
+# Before getting into this you might consider downloading pre-built
+# binaries from:
+# http://www.teos-10.org/preteos10_software/neutral_density.html
+
 # Download gamma.tar.Z (distributed by Jackett and McDougall 1997) and 
 # place it in this folder. This script 
 
