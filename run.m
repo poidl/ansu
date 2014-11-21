@@ -6,6 +6,8 @@ addpath(genpath('../../../neutral_common'))
 addpath(genpath('../../../gsw_matlab_v3_04'))
 addpath(genpath('../../../gamma_n'))
 
+make_dir('./data') % create data dir if it doesn't exist
+
 % get input data
 path_to_gammanc='/home/nfs/z3439823/mymatlab/gamma_n/';
 %[s,ct,p,lon,lat]=get_input_jackett96(path_to_gammanc); % read the Jackett and McDougall (1997) data set and apply a land mask at

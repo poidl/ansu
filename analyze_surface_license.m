@@ -31,7 +31,7 @@
 %   This is part of the analyze_surface toolbox, (C) 2009 A. Klocker
 %   Copyright (C) 2010-2013 P. Barker
 %   Copyright (C) 2013, 2014 S. Riha
-%   Principal investigator: Trevor McDougall
+%   Principal investigators: Trevor McDougall, David Jackett
 %   type 'help analyze_surface' for more information 
 %   type 'analyze_surface_license' for license details
 %   type 'analyze_surface_version' for version details
