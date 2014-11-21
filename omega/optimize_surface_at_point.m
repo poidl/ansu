@@ -45,7 +45,7 @@ function [sns,ctns,pns] = optimize_surface_at_point(s,ct,p,lon,lat,point)
 
     if no_land_mask
         ocean = gamma_ocean_and_n(s,ct,p,lon,lat);
-        save([datapath,'no_land_mask.mat'], 'ocean', 'n')
+        save([datapath,'no_land_mask.mat'], 'ocean')
     end
 
     % we only keep the one single (connected) surface on which p0 is located.

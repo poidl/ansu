@@ -10,7 +10,7 @@ function [sns,ctns,pns] = get_connected(sns,ctns,pns,istation)
             ex(:,end)=nan;
         end
         ey(end,:)=nan;
-        [ex,ey]=no_land_mask_disconnect(ex,ey);
+        [ex,ey]=no_land_mask_disconnect_rule(ex,ey);
         regions=find_regions_coupled_system(sns,ex,ey);
     else
         regions=find_regions(sns);

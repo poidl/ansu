@@ -123,7 +123,7 @@ while 1
             [erx,ery]=times_sqrtdA_on_delta(er_gradx,er_grady,dx,dy);             
 
             if no_land_mask
-                [erx,ery]=no_land_mask_disconnect(erx,ery);
+                [erx,ery]=no_land_mask_disconnect_rule(erx,ery);
             end
             regions=find_regions_coupled_system(pns,erx,ery);
             [derr,res]=solve_lsqr_links(regions, erx, ery);

@@ -40,11 +40,19 @@ References:
 #### DEPENDENCIES
 
 - Gibbs-SeaWater (GSW) Oceanographic Toolbox (MATLAB library).  
-  A (possibly outdated) version of this library is distributed with ansu. Recent versions are available at
+  This library is not distributed with `analyze_surface`. It is available at
   [http://www.teos-10.org/software.htm].
   Reference: McDougall, T.J. and P.M. Barker, 2011: Getting started with TEOS-10 and the Gibbs Seawater (GSW) 
   Oceanographic Toolbox, 28pp., SCOR/IAPSO WG127, ISBN 978-0-646-55621-5.
    
+   
+#### OPTIONAL DEPENDENCIES
+
+- GAMMA-N, A Package Of Neutral Density Routines   
+  Reference: Jackett, D. R. and McDougall, T. J., 1997: A Neutral Density Variable forthe World’s Oceans, 
+  J. Phys. Oceanogr., 27, 237–263.   
+  This is only necessary if you want to 'label' the surfaces with a gamma-n value (see `run.m` for an example).
+	
 
 #### REPOSITORY
 
