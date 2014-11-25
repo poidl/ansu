@@ -33,8 +33,7 @@ References:
    Contains functions specific to omega-surfaces. 
 
 - `neutral_common`   
-   Contains dependencies (GSW Toolbox) and some packages and functions shared with other Neutral 
-   Density programs.
+   Contains functions shared with other Neutral Density programs.
    
 
 #### DEPENDENCIES
