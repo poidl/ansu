@@ -33,7 +33,7 @@ References:
    Contains functions specific to omega-surfaces. 
 
 - `neutral_common`   
-   Contains functions shared with other Neutral Density programs.
+   Contains functions shared with other Neutral Density codes.
    
 
 #### DEPENDENCIES
