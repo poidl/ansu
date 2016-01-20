@@ -1,4 +1,13 @@
 function [sns,ctns,pns] = depth_ntp_simple(s0,ct0,p0,s,ct,p,drho)
+%This function is to find the salinity, conservative temperature and
+%pressure of the points on the casts, which have the same density with the
+%bottles.
+
+%There are two options for inputs:
+%1 s0,ct0 and p0 are scalars (one bottle). Size is (1,1).
+%  s,ct and p are vectors of size (nz,1).
+%2 s0,ct0 and p0 are vectors of size (1,nx*ny).
+%  s,ct and p are matrices of size (nz,nx*ny).
 
 % warning('no check of input dimensions')
 
@@ -13,7 +22,7 @@ if nargin==6
     drho=0*s0; % drho is a zero vector
 end
 
-nxy=size(s,2);
+nxy=size(s,2); % m = size(X,dim) returns the size of the dimension of X specified by scalar dim.
 
 inds=1:nxy;
 
@@ -33,6 +42,8 @@ inds_wet=1:nxy;
 p0_stacked=repmat(p0(:)',[nz 1]);
 
 k=sum(p0_stacked>=p,1); % adjacent bottle looking up. values 1 to nz.
+basc = p0(:)' < p(1,:); %bottle_above_shallowest_castDataPoint
+k(basc)=1; % start at the uppermost cast pair
 k3d=k+nz*(0:nxy-1); % 3-d
 kinc=nan*ones(1,nxy); % increment of k
 
