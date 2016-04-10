@@ -38,7 +38,7 @@ for iregion=1:length(regions)
     j2_ns=sreg(nn);
     
     % clamp at point
-    if ismember(ibb,region)
+    if (clamp_on_point & ismember(ibb,region))
         j1_condition=sreg(ibb);
     else
         j1_condition=[1:sum(reg)];
@@ -48,7 +48,7 @@ for iregion=1:length(regions)
     j2=[j2_ew',j2_ns'];
     
     i2=1:(sum(en)+sum(nn)); % i-indices for matrix coeff. -1
-    if ismember(ibb,region)
+    if (clamp_on_point & ismember(ibb,region))
         i1=[i2, (sum(en)+sum(nn)+1)]; % i-indices for matrix coeff. 1
     else
         i1=[i2, (sum(en)+sum(nn)+1)*ones(1,sum(reg))]; % i-indices for matrix coeff. 1

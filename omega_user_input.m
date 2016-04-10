@@ -1,9 +1,9 @@
 global_user_input; % source global configuration file
 
 solver = 'exact'; % 'exact' works well for small problems, 'iterative' may work better for large ones
-no_land_mask=true; % 'true' may only work with the original Jackatt/McDougall 96 data set
+no_land_mask=false; % 'true' may only work with the original Jackatt/McDougall 96 data set
 
-clamp_on_point=true; % this switch is currently broken, must be set to true;
+clamp_on_point=false; 
 
 error_measure='drho_local'; % don't modify unless you want to experiment
 %error_measure='slope_difference'; % less stable than 'drho_local', needs damping. Need to monitor convergence, to be sure increase nit_after_wetting to 60.
